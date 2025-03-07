@@ -8,6 +8,7 @@ namespace SmartVillageAPI.Data
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
+            Database.EnsureCreated();
         }
 
         public DbSet<User> Users { get; set; }
@@ -36,8 +37,5 @@ namespace SmartVillageAPI.Data
                 .HasForeignKey(a => a.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
-
-
-
     }
 }

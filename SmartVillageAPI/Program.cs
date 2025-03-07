@@ -111,12 +111,13 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        DbInitializer.Initialize(context);
+        context.Database.EnsureCreated(); // This creates the database if it doesn't exist
+        DbInitializer.SeedData(context); // Just seed data, no migrations
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "An error occurred during database initialization.");
     }
 }
 
