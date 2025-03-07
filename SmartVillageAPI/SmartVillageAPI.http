@@ -1,0 +1,6 @@
+@SmartVillageAPI_HostAddress = http://localhost:5135
+
+GET {{SmartVillageAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
