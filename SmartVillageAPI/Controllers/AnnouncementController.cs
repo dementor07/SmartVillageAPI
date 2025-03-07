@@ -149,7 +149,7 @@ namespace SmartVillageAPI.Controllers
     public class UpdateAnnouncementModel
     {
         public string? Title { get; set; }
-        public string? Content { get; set; }
+        public string? Content { get; set; }   //Update Announcement
         public string? Category { get; set; }
         public bool? IsPublished { get; set; }
         public DateTime? ExpiresAt { get; set; }
