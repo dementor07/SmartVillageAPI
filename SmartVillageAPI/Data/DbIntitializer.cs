@@ -9,7 +9,6 @@ namespace SmartVillageAPI.Data
     {
         public static void Initialize(ApplicationDbContext context)
         {
-            // This method is kept for backward compatibility but redirects to SeedData
             SeedData(context);
         }
 

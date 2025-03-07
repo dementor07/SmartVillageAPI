@@ -11,39 +11,39 @@ namespace SmartVillageAPI.Models
 
         [Required]
         [StringLength(100)]
-        public string FullName { get; set; }
+        public string FullName { get; set; } = string.Empty;
 
         [Required]
         [Phone]
         [StringLength(15)]
-        public string MobileNo { get; set; }
+        public string MobileNo { get; set; } = string.Empty;
 
         [Required]
         [EmailAddress]
         [StringLength(100)]
-        public string EmailId { get; set; }
+        public string EmailId { get; set; } = string.Empty;
 
         [Required]
-        public string PasswordHash { get; set; }
+        public string PasswordHash { get; set; } = string.Empty;
 
         [Required]
-        public string PasswordSalt { get; set; }
-
-        [Required]
-        [StringLength(50)]
-        public string State { get; set; }
+        public string PasswordSalt { get; set; } = string.Empty;
 
         [Required]
         [StringLength(50)]
-        public string District { get; set; }
+        public string State { get; set; } = string.Empty;
 
         [Required]
         [StringLength(50)]
-        public string Village { get; set; }
+        public string District { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(50)]
+        public string Village { get; set; } = string.Empty;
 
         [Required]
         [StringLength(200)]
-        public string Address { get; set; }
+        public string Address { get; set; } = string.Empty;
 
         [Required]
         [StringLength(20)]

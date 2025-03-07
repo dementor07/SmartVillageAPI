@@ -24,83 +24,107 @@ namespace SmartVillageAPI.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllRequests()
         {
-            var requests = await _context.ServiceRequests
-                .Include(r => r.User)
-                .Select(r => new
-                {
-                    id = r.Id,
-                    title = r.Title,
-                    description = r.Description,
-                    category = r.Category,
-                    status = r.Status,
-                    createdAt = r.CreatedAt,
-                    resolvedAt = r.ResolvedAt,
-                    userName = r.User.FullName,
-                    userContact = r.User.MobileNo
-                })
-                .ToListAsync();
+            try
+            {
+                var requests = await _context.ServiceRequests
+                    .Include(r => r.User)
+                    .Select(r => new
+                    {
+                        id = r.Id,
+                        title = r.Title,
+                        description = r.Description,
+                        category = r.Category,
+                        status = r.Status,
+                        createdAt = r.CreatedAt,
+                        resolvedAt = r.ResolvedAt,
+                        userName = r.User != null ? r.User.FullName : "Unknown",
+                        userContact = r.User != null ? r.User.MobileNo : "Unknown"
+                    })
+                    .ToListAsync();
 
-            return Ok(requests);
+                return Ok(requests);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving service requests", error = ex.Message });
+            }
         }
 
         // Get my service requests
         [HttpGet("my-requests")]
         public async Task<IActionResult> GetMyRequests()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
-                return Unauthorized();
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
+                    return Unauthorized(new { message = "Invalid or expired token" });
 
-            var requests = await _context.ServiceRequests
-                .Where(r => r.UserId == id)
-                .Select(r => new
-                {
-                    id = r.Id,
-                    title = r.Title,
-                    description = r.Description,
-                    category = r.Category,
-                    status = r.Status,
-                    resolution = r.Resolution,
-                    createdAt = r.CreatedAt,
-                    resolvedAt = r.ResolvedAt
-                })
-                .ToListAsync();
+                var requests = await _context.ServiceRequests
+                    .Where(r => r.UserId == id)
+                    .Select(r => new
+                    {
+                        id = r.Id,
+                        title = r.Title,
+                        description = r.Description,
+                        category = r.Category,
+                        status = r.Status,
+                        resolution = r.Resolution,
+                        createdAt = r.CreatedAt,
+                        resolvedAt = r.ResolvedAt
+                    })
+                    .ToListAsync();
 
-            return Ok(requests);
+                return Ok(requests);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving your service requests", error = ex.Message });
+            }
         }
 
         // Get service request by ID
         [HttpGet("{id}")]
         public async Task<IActionResult> GetRequestById(int id)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int uid))
-                return Unauthorized();
-
-            var request = await _context.ServiceRequests
-                .Include(r => r.User)
-                .FirstOrDefaultAsync(r => r.Id == id);
-
-            if (request == null)
-                return NotFound();
-
-            // Only allow admin or the request owner to view details
-            if (request.UserId != uid && !User.IsInRole("Admin"))
-                return Forbid();
-
-            return Ok(new
+            try
             {
-                id = request.Id,
-                title = request.Title,
-                description = request.Description,
-                category = request.Category,
-                status = request.Status,
-                resolution = request.Resolution,
-                createdAt = request.CreatedAt,
-                resolvedAt = request.ResolvedAt,
-                userName = request.User.FullName,
-                userContact = request.User.MobileNo
-            });
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int uid))
+                    return Unauthorized(new { message = "Invalid or expired token" });
+
+                var request = await _context.ServiceRequests
+                    .Include(r => r.User)
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (request == null)
+                    return NotFound(new { message = "Service request not found" });
+
+                // Only allow admin or the request owner to view details
+                if (request.UserId != uid && !User.IsInRole("Admin"))
+                    return Forbid();
+
+                if (request.User == null)
+                    return BadRequest(new { message = "Service request data is corrupted" });
+
+                return Ok(new
+                {
+                    id = request.Id,
+                    title = request.Title,
+                    description = request.Description,
+                    category = request.Category,
+                    status = request.Status,
+                    resolution = request.Resolution,
+                    createdAt = request.CreatedAt,
+                    resolvedAt = request.ResolvedAt,
+                    userName = request.User.FullName,
+                    userContact = request.User.MobileNo
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving the service request", error = ex.Message });
+            }
         }
 
         // Create service request
@@ -110,27 +134,34 @@ namespace SmartVillageAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
-                return Unauthorized();
-
-            var request = new ServiceRequest
+            try
             {
-                UserId = id,
-                Title = model.Title,
-                Description = model.Description,
-                Category = model.Category,
-                Status = "Pending"
-            };
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
+                    return Unauthorized(new { message = "Invalid or expired token" });
 
-            _context.ServiceRequests.Add(request);
-            await _context.SaveChangesAsync();
+                var request = new ServiceRequest
+                {
+                    UserId = id,
+                    Title = model.Title,
+                    Description = model.Description,
+                    Category = model.Category,
+                    Status = "Pending"
+                };
 
-            return Ok(new
+                _context.ServiceRequests.Add(request);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    id = request.Id,
+                    message = "Service request created successfully!"
+                });
+            }
+            catch (Exception ex)
             {
-                id = request.Id,
-                message = "Service request created successfully!"
-            });
+                return StatusCode(500, new { message = "An error occurred while creating the service request", error = ex.Message });
+            }
         }
 
         // Update service request status (admin only)
@@ -141,20 +172,27 @@ namespace SmartVillageAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var request = await _context.ServiceRequests.FindAsync(id);
-            if (request == null)
-                return NotFound();
-
-            request.Status = model.Status;
-
-            if (model.Status == "Resolved")
+            try
             {
-                request.Resolution = model.Resolution;
-                request.ResolvedAt = DateTime.UtcNow;
-            }
+                var request = await _context.ServiceRequests.FindAsync(id);
+                if (request == null)
+                    return NotFound(new { message = "Service request not found" });
 
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Service request status updated successfully!" });
+                request.Status = model.Status;
+
+                if (model.Status == "Resolved")
+                {
+                    request.Resolution = model.Resolution;
+                    request.ResolvedAt = DateTime.UtcNow;
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Service request status updated successfully!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the service request status", error = ex.Message });
+            }
         }
     }
 

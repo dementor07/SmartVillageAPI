@@ -15,7 +15,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+    ?? new JwtSettings();
 var key = Encoding.ASCII.GetBytes(jwtSettings.Secret);
 
 // Add JWT authentication

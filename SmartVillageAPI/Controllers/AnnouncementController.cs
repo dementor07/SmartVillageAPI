@@ -22,49 +22,67 @@ namespace SmartVillageAPI.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAnnouncements()
         {
-            var announcements = await _context.Announcements
-                .Where(a => a.IsPublished && (!a.ExpiresAt.HasValue || a.ExpiresAt > DateTime.UtcNow))
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => new
-                {
-                    id = a.Id,
-                    title = a.Title,
-                    content = a.Content,
-                    category = a.Category,
-                    createdAt = a.CreatedAt,
-                    publishedBy = a.User.FullName
-                })
-                .ToListAsync();
+            try
+            {
+                var announcements = await _context.Announcements
+                    .Where(a => a.IsPublished && (!a.ExpiresAt.HasValue || a.ExpiresAt > DateTime.UtcNow))
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Include(a => a.User)
+                    .Select(a => new
+                    {
+                        id = a.Id,
+                        title = a.Title,
+                        content = a.Content,
+                        category = a.Category,
+                        createdAt = a.CreatedAt,
+                        publishedBy = a.User != null ? a.User.FullName : "Unknown"
+                    })
+                    .ToListAsync();
 
-            return Ok(announcements);
+                return Ok(announcements);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving announcements", error = ex.Message });
+            }
         }
 
         // Get announcement by ID
         [HttpGet("{id}")]
         public async Task<IActionResult> GetAnnouncementById(int id)
         {
-            var announcement = await _context.Announcements
-                .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Id == id);
-
-            if (announcement == null)
-                return NotFound();
-
-            // If not published, only admin can view
-            if (!announcement.IsPublished && !User.IsInRole("Admin"))
-                return Forbid();
-
-            return Ok(new
+            try
             {
-                id = announcement.Id,
-                title = announcement.Title,
-                content = announcement.Content,
-                category = announcement.Category,
-                createdAt = announcement.CreatedAt,
-                expiresAt = announcement.ExpiresAt,
-                isPublished = announcement.IsPublished,
-                publishedBy = announcement.User.FullName
-            });
+                var announcement = await _context.Announcements
+                    .Include(a => a.User)
+                    .FirstOrDefaultAsync(a => a.Id == id);
+
+                if (announcement == null)
+                    return NotFound(new { message = "Announcement not found" });
+
+                if (announcement.User == null)
+                    return BadRequest(new { message = "Announcement data is corrupted" });
+
+                // If not published, only admin can view
+                if (!announcement.IsPublished && !User.IsInRole("Admin"))
+                    return Forbid();
+
+                return Ok(new
+                {
+                    id = announcement.Id,
+                    title = announcement.Title,
+                    content = announcement.Content,
+                    category = announcement.Category,
+                    createdAt = announcement.CreatedAt,
+                    expiresAt = announcement.ExpiresAt,
+                    isPublished = announcement.IsPublished,
+                    publishedBy = announcement.User.FullName
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving the announcement", error = ex.Message });
+            }
         }
 
         // Create announcement (admin only)
@@ -75,28 +93,35 @@ namespace SmartVillageAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
-                return Unauthorized();
-
-            var announcement = new Announcement
+            try
             {
-                UserId = id,
-                Title = model.Title,
-                Content = model.Content,
-                Category = model.Category,
-                IsPublished = model.IsPublished,
-                ExpiresAt = model.ExpiresAt
-            };
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
+                    return Unauthorized(new { message = "Invalid or expired token" });
 
-            _context.Announcements.Add(announcement);
-            await _context.SaveChangesAsync();
+                var announcement = new Announcement
+                {
+                    UserId = id,
+                    Title = model.Title,
+                    Content = model.Content,
+                    Category = model.Category,
+                    IsPublished = model.IsPublished,
+                    ExpiresAt = model.ExpiresAt
+                };
 
-            return Ok(new
+                _context.Announcements.Add(announcement);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    id = announcement.Id,
+                    message = "Announcement created successfully!"
+                });
+            }
+            catch (Exception ex)
             {
-                id = announcement.Id,
-                message = "Announcement created successfully!"
-            });
+                return StatusCode(500, new { message = "An error occurred while creating the announcement", error = ex.Message });
+            }
         }
 
         // Update announcement (admin only)
@@ -107,18 +132,25 @@ namespace SmartVillageAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var announcement = await _context.Announcements.FindAsync(id);
-            if (announcement == null)
-                return NotFound();
+            try
+            {
+                var announcement = await _context.Announcements.FindAsync(id);
+                if (announcement == null)
+                    return NotFound(new { message = "Announcement not found" });
 
-            announcement.Title = model.Title ?? announcement.Title;
-            announcement.Content = model.Content ?? announcement.Content;
-            announcement.Category = model.Category ?? announcement.Category;
-            announcement.IsPublished = model.IsPublished ?? announcement.IsPublished;
-            announcement.ExpiresAt = model.ExpiresAt;
+                announcement.Title = model.Title ?? announcement.Title;
+                announcement.Content = model.Content ?? announcement.Content;
+                announcement.Category = model.Category ?? announcement.Category;
+                announcement.IsPublished = model.IsPublished ?? announcement.IsPublished;
+                announcement.ExpiresAt = model.ExpiresAt;
 
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Announcement updated successfully!" });
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Announcement updated successfully!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the announcement", error = ex.Message });
+            }
         }
 
         // Delete announcement (admin only)
@@ -126,14 +158,21 @@ namespace SmartVillageAPI.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteAnnouncement(int id)
         {
-            var announcement = await _context.Announcements.FindAsync(id);
-            if (announcement == null)
-                return NotFound();
+            try
+            {
+                var announcement = await _context.Announcements.FindAsync(id);
+                if (announcement == null)
+                    return NotFound(new { message = "Announcement not found" });
 
-            _context.Announcements.Remove(announcement);
-            await _context.SaveChangesAsync();
+                _context.Announcements.Remove(announcement);
+                await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Announcement deleted successfully!" });
+                return Ok(new { message = "Announcement deleted successfully!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while deleting the announcement", error = ex.Message });
+            }
         }
     }
 
@@ -149,7 +188,7 @@ namespace SmartVillageAPI.Controllers
     public class UpdateAnnouncementModel
     {
         public string? Title { get; set; }
-        public string? Content { get; set; }   //Update Announcement
+        public string? Content { get; set; }
         public string? Category { get; set; }
         public bool? IsPublished { get; set; }
         public DateTime? ExpiresAt { get; set; }

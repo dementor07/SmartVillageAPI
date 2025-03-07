@@ -8,12 +8,11 @@ namespace SmartVillageAPI.Data
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
-            Database.EnsureCreated();
         }
 
-        public DbSet<User> Users { get; set; }
-        public DbSet<ServiceRequest> ServiceRequests { get; set; }
-        public DbSet<Announcement> Announcements { get; set; }
+        public DbSet<User> Users { get; set; } = null!;
+        public DbSet<ServiceRequest> ServiceRequests { get; set; } = null!;
+        public DbSet<Announcement> Announcements { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
