@@ -1,5 +1,4 @@
-// Web/smart-village-frontend/src/components/dashboard/AdminDashboard.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import RequestService from '../../services/request.service';
 import CertificateService from '../../services/certificate.service';
@@ -7,18 +6,33 @@ import AnnouncementService from '../../services/announcement.service';
 import AuthService from '../../services/auth.service';
 
 const AdminDashboard = () => {
-    const [stats, setStats] = useState({
-        pendingRequests: 0,
-        totalRequests: 0,
-        pendingCertificates: 0,
-        totalCertificates: 0,
-        totalAnnouncements: 0
+    const [dashboardData, setDashboardData] = useState({
+        stats: {
+            pendingRequests: 0,
+            totalRequests: 0,
+            pendingCertificates: 0,
+            totalCertificates: 0,
+            totalAnnouncements: 0
+        },
+        recentRequests: [],
+        recentCertificates: []
     });
-    const [recentRequests, setRecentRequests] = useState([]);
-    const [recentCertificates, setRecentCertificates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const user = AuthService.getCurrentUser();
+
+    // Retrieve current user with graceful handling
+    const adminUser = useMemo(() =>
+        AuthService.getCurrentUser() || {
+            fullName: 'Administrator',
+            emailId: 'admin@system.local',
+            role: 'Admin'
+        },
+        []);
+
+    useEffect(() => {
+        // Log admin dashboard access only once
+        console.log(`Admin Dashboard accessed by: ${adminUser.fullName} (${adminUser.emailId})`);
+    }, [adminUser]);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -28,35 +42,30 @@ const AdminDashboard = () => {
                 // Fetch all admin data in parallel
                 const [requestsResponse, certificatesResponse, announcementsResponse] = await Promise.all([
                     RequestService.getAllRequests(),
-                    CertificateService.getCertificates(), // All certificates
+                    CertificateService.getCertificates(),
                     AnnouncementService.getAnnouncements()
                 ]);
 
-                // Calculate stats from responses
+                // Calculate and set dashboard data
                 const allRequests = requestsResponse.data || [];
                 const allCertificates = certificatesResponse.data || [];
                 const allAnnouncements = announcementsResponse.data || [];
 
-                setStats({
-                    pendingRequests: allRequests.filter(r => r.status === 'Pending').length,
-                    totalRequests: allRequests.length,
-                    pendingCertificates: allCertificates.filter(c => c.status === 'Pending').length,
-                    totalCertificates: allCertificates.length,
-                    totalAnnouncements: allAnnouncements.length
+                setDashboardData({
+                    stats: {
+                        pendingRequests: allRequests.filter(r => r.status === 'Pending').length,
+                        totalRequests: allRequests.length,
+                        pendingCertificates: allCertificates.filter(c => c.status === 'Pending').length,
+                        totalCertificates: allCertificates.length,
+                        totalAnnouncements: allAnnouncements.length
+                    },
+                    recentRequests: allRequests
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        .slice(0, 5),
+                    recentCertificates: allCertificates
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        .slice(0, 5)
                 });
-
-                // Get most recent items (last 5)
-                setRecentRequests(
-                    allRequests
-                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                        .slice(0, 5)
-                );
-
-                setRecentCertificates(
-                    allCertificates
-                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                        .slice(0, 5)
-                );
 
                 setLoading(false);
             } catch (error) {
@@ -67,7 +76,7 @@ const AdminDashboard = () => {
         };
 
         fetchDashboardData();
-    }, []);
+    }, []); // Empty dependency array as we don't want repeated calls
 
     if (loading) {
         return (
@@ -110,9 +119,9 @@ const AdminDashboard = () => {
                 <div className="col-md-3 mb-3">
                     <div className="card text-white bg-primary h-100">
                         <div className="card-body text-center">
-                            <h1 className="display-4">{stats.pendingRequests}</h1>
+                            <h1 className="display-4">{dashboardData.stats.pendingRequests}</h1>
                             <h5>Pending Requests</h5>
-                            <h6>Out of {stats.totalRequests} total</h6>
+                            <h6>Out of {dashboardData.stats.totalRequests} total</h6>
                         </div>
                         <div className="card-footer d-grid">
                             <Link to="/admin/requests" className="btn btn-light">Manage Requests</Link>
@@ -122,9 +131,9 @@ const AdminDashboard = () => {
                 <div className="col-md-3 mb-3">
                     <div className="card text-white bg-success h-100">
                         <div className="card-body text-center">
-                            <h1 className="display-4">{stats.pendingCertificates}</h1>
+                            <h1 className="display-4">{dashboardData.stats.pendingCertificates}</h1>
                             <h5>Pending Certificates</h5>
-                            <h6>Out of {stats.totalCertificates} total</h6>
+                            <h6>Out of {dashboardData.stats.totalCertificates} total</h6>
                         </div>
                         <div className="card-footer d-grid">
                             <Link to="/admin/certificates" className="btn btn-light">Manage Certificates</Link>
@@ -134,7 +143,7 @@ const AdminDashboard = () => {
                 <div className="col-md-3 mb-3">
                     <div className="card text-white bg-info h-100">
                         <div className="card-body text-center">
-                            <h1 className="display-4">{stats.totalAnnouncements}</h1>
+                            <h1 className="display-4">{dashboardData.stats.totalAnnouncements}</h1>
                             <h5>Announcements</h5>
                             <h6>Published to village</h6>
                         </div>
@@ -169,9 +178,9 @@ const AdminDashboard = () => {
                             <Link to="/admin/requests" className="btn btn-sm btn-light">View All</Link>
                         </div>
                         <div className="card-body">
-                            {recentRequests.length > 0 ? (
+                            {dashboardData.recentRequests.length > 0 ? (
                                 <div className="list-group">
-                                    {recentRequests.map(request => (
+                                    {dashboardData.recentRequests.map(request => (
                                         <Link
                                             to={`/service-requests/${request.id}`}
                                             className="list-group-item list-group-item-action"
@@ -208,9 +217,9 @@ const AdminDashboard = () => {
                             <Link to="/admin/certificates" className="btn btn-sm btn-light">View All</Link>
                         </div>
                         <div className="card-body">
-                            {recentCertificates.length > 0 ? (
+                            {dashboardData.recentCertificates.length > 0 ? (
                                 <div className="list-group">
-                                    {recentCertificates.map(cert => (
+                                    {dashboardData.recentCertificates.map(cert => (
                                         <Link
                                             to={`/certificates/${cert.id}`}
                                             className="list-group-item list-group-item-action"
@@ -242,7 +251,7 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions Remaining the Same */}
             <div className="row mb-4">
                 <div className="col-12">
                     <div className="card">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
@@ -19,11 +19,70 @@ import CertificateList from './components/certificates/CertificateList';
 import CertificateDetails from './components/certificates/CertificateDetails';
 import CertificateApplication from './components/certificates/CertificateApplication';
 import AuthService from './services/auth.service';
-import { ProtectedRoute, AdminRoute } from './components/auth/ProtectedRoutes';
-import AuthenticatedHeader from './components/layout/AuthenticatedHeader';
+import { ProtectedRoute, AdminRoute } from './components/auth/ProtectedRoute';
+import AuthenticatedHeader from './components/layout/Header';
 
-// Root component that checks auth state for the app
-const App = () => {
+// Create a global navigation context
+const NavigationContext = createContext(null);
+
+// Navigation Provider Component
+const NavigationProvider = ({ children }) => {
+  const navigate = useNavigate();
+
+  // Centralized navigation methods
+  const navigationMethods = {
+    // Handle unexpected errors with graceful navigation
+    handleErrorNavigation: (errorType = 'generic') => {
+      console.error(`Navigating due to ${errorType} error`);
+
+      switch (errorType) {
+        case 'auth':
+          navigate('/login', {
+            state: {
+              message: 'Your session has expired. Please log in again.'
+            }
+          });
+          break;
+        case 'permission':
+          navigate('/dashboard', {
+            state: {
+              message: 'You do not have permission to access this page.'
+            }
+          });
+          break;
+        default:
+          navigate('/error', {
+            state: {
+              message: 'An unexpected error occurred. Please try again.'
+            }
+          });
+      }
+    },
+
+    // Redirect to a specific page with optional state
+    redirectTo: (path, state = {}) => {
+      navigate(path, { state });
+    }
+  };
+
+  return (
+    <NavigationContext.Provider value={navigationMethods}>
+      {children}
+    </NavigationContext.Provider>
+  );
+};
+
+// Custom hook to use navigation methods
+export const useAppNavigation = () => {
+  const context = useContext(NavigationContext);
+  if (context === null) {
+    throw new Error('useAppNavigation must be used within a NavigationProvider');
+  }
+  return context;
+};
+
+// Wrapper component to handle authentication and routing
+const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -61,7 +120,7 @@ const App = () => {
   }
 
   return (
-    <BrowserRouter>
+    <NavigationProvider>
       <div className="d-flex flex-column min-vh-100">
         {isAuthenticated ? <AuthenticatedHeader isAdmin={isAdmin} /> : <Header />}
         <main className="flex-grow-1">
@@ -72,6 +131,13 @@ const App = () => {
             <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
             <Route path="/announcements" element={<AnnouncementList />} />
             <Route path="/announcements/:id" element={<AnnouncementDetails />} />
+
+            {/* Error handling route */}
+            <Route path="/error" element={<div className="container mt-4">
+              <div className="alert alert-danger">
+                An error occurred. Please try again or contact support.
+              </div>
+            </div>} />
 
             {/* Protected routes - Resident */}
             <Route path="/dashboard" element={
@@ -148,6 +214,15 @@ const App = () => {
         </main>
         <Footer />
       </div>
+    </NavigationProvider>
+  );
+};
+
+// Root component that wraps AppContent with BrowserRouter
+const App = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 };
