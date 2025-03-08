@@ -1,10 +1,17 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+=======
+// Web/smart-village-frontend/src/components/dashboard/Dashboard.js
+import React from 'react';
+import { Link } from 'react-router-dom';
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
 import AuthService from '../../services/auth.service';
 import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
 
 const Dashboard = () => {
+<<<<<<< HEAD
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,6 +47,10 @@ const Dashboard = () => {
     }
 
     // Render the appropriate dashboard based on role
+=======
+    const isAdmin = AuthService.isAdmin();
+
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
     return isAdmin ? <AdminDashboard /> : <UserDashboard />;
 };
 

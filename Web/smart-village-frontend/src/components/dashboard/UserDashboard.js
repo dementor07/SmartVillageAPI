@@ -1,21 +1,33 @@
+<<<<<<< HEAD
+=======
+// Web/smart-village-frontend/src/components/dashboard/UserDashboard.js
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import RequestService from '../../services/request.service';
 import CertificateService from '../../services/certificate.service';
+<<<<<<< HEAD
 import AnnouncementService from '../../services/announcement.service';
 import AuthService from '../../services/auth.service';
+=======
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
 
 const UserDashboard = () => {
     const [serviceRequests, setServiceRequests] = useState([]);
     const [certificates, setCertificates] = useState([]);
+<<<<<<< HEAD
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const user = AuthService.getCurrentUser();
+=======
+    const [loading, setLoading] = useState(true);
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
+<<<<<<< HEAD
                 setLoading(true);
 
                 // Fetch data in parallel with Promise.all
@@ -29,11 +41,23 @@ const UserDashboard = () => {
                 setCertificates(certificatesResponse.data);
                 // Get just the latest 3 announcements
                 setAnnouncements(announcementsResponse.data.slice(0, 3));
+=======
+                // Fetch service requests
+                const requestsResponse = await RequestService.getMyRequests();
+                setServiceRequests(requestsResponse.data);
+
+                // Fetch certificates
+                const certificatesResponse = await CertificateService.getMyCertificates();
+                setCertificates(certificatesResponse.data);
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
 
                 setLoading(false);
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
+<<<<<<< HEAD
                 setError('Failed to load dashboard data. Please try again later.');
+=======
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                 setLoading(false);
             }
         };
@@ -41,14 +65,23 @@ const UserDashboard = () => {
         fetchDashboardData();
     }, []);
 
+<<<<<<< HEAD
     if (loading) {
         return (
             <div className="container mt-4">
+=======
+    return (
+        <div className="container mt-4">
+            <h2 className="mb-4">Resident Dashboard</h2>
+
+            {loading ? (
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                 <div className="d-flex justify-content-center my-5">
                     <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Loading...</span>
                     </div>
                 </div>
+<<<<<<< HEAD
             </div>
         );
     }
@@ -86,10 +119,23 @@ const UserDashboard = () => {
                             {serviceRequests.length > 0 ? (
                                 <>
                                     <div className="mb-3">
+=======
+            ) : (
+                <div className="row">
+                    <div className="col-md-4 mb-4">
+                        <div className="card h-100">
+                            <div className="card-body text-center">
+                                <i className="fas fa-tools fa-3x text-primary mb-3"></i>
+                                <h3 className="card-title">My Service Requests</h3>
+                                <p className="card-text">View and manage your service requests</p>
+                                {serviceRequests.length > 0 && (
+                                    <div className="mb-2">
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                                         <span className="badge bg-info me-1">{serviceRequests.length} Total</span>
                                         <span className="badge bg-warning me-1">
                                             {serviceRequests.filter(r => r.status === 'Pending').length} Pending
                                         </span>
+<<<<<<< HEAD
                                         <span className="badge bg-success me-1">
                                             {serviceRequests.filter(r => r.status === 'Resolved').length} Resolved
                                         </span>
@@ -124,10 +170,17 @@ const UserDashboard = () => {
                                 </Link>
                                 <Link to="/service-requests/create" className="btn btn-primary">
                                     <i className="fas fa-plus me-1"></i> Create New Request
+=======
+                                    </div>
+                                )}
+                                <Link to="/service-requests" className="btn btn-primary">
+                                    View Requests
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                                 </Link>
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 </div>
 
                 <div className="col-md-6 mb-4">
@@ -139,10 +192,21 @@ const UserDashboard = () => {
                             {certificates.length > 0 ? (
                                 <>
                                     <div className="mb-3">
+=======
+                    <div className="col-md-4 mb-4">
+                        <div className="card h-100">
+                            <div className="card-body text-center">
+                                <i className="fas fa-certificate fa-3x text-primary mb-3"></i>
+                                <h3 className="card-title">My Certificates</h3>
+                                <p className="card-text">Apply for and track your certificate applications</p>
+                                {certificates.length > 0 && (
+                                    <div className="mb-2">
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                                         <span className="badge bg-info me-1">{certificates.length} Total</span>
                                         <span className="badge bg-warning me-1">
                                             {certificates.filter(c => c.status === 'Pending').length} Pending
                                         </span>
+<<<<<<< HEAD
                                         <span className="badge bg-success me-1">
                                             {certificates.filter(c => c.status === 'Approved').length} Approved
                                         </span>
@@ -184,10 +248,17 @@ const UserDashboard = () => {
                                 </Link>
                                 <Link to="/certificates/apply" className="btn btn-success">
                                     <i className="fas fa-plus me-1"></i> Apply for Certificate
+=======
+                                    </div>
+                                )}
+                                <Link to="/certificates" className="btn btn-primary">
+                                    Manage Certificates
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                                 </Link>
                             </div>
                         </div>
                     </div>
+<<<<<<< HEAD
                 </div>
             </div>
 
@@ -257,14 +328,44 @@ const UserDashboard = () => {
                             <div className="text-center mt-3">
                                 <Link to="/profile" className="btn btn-outline-secondary">
                                     <i className="fas fa-user-edit me-1"></i> Edit Profile
+=======
+                    <div className="col-md-4 mb-4">
+                        <div className="card h-100">
+                            <div className="card-body text-center">
+                                <i className="fas fa-bullhorn fa-3x text-primary mb-3"></i>
+                                <h3 className="card-title">Announcements</h3>
+                                <p className="card-text">Stay updated with the latest announcements</p>
+                                <Link to="/announcements" className="btn btn-primary">
+                                    View Announcements
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-md-4 mb-4">
+                        <div className="card h-100">
+                            <div className="card-body text-center">
+                                <i className="fas fa-user fa-3x text-primary mb-3"></i>
+                                <h3 className="card-title">My Profile</h3>
+                                <p className="card-text">View and update your profile information</p>
+                                <Link to="/profile" className="btn btn-primary">
+                                    View Profile
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
                                 </Link>
                             </div>
                         </div>
                     </div>
                 </div>
+<<<<<<< HEAD
             </div>
+=======
+            )}
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
         </div>
     );
 };
 
+<<<<<<< HEAD
 export default UserDashboard;
+=======
+export default UserDashboard;
+>>>>>>> 46040bfe8f6ca91060de869076f2d670e08e7602
