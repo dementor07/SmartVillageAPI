@@ -15,6 +15,9 @@ import Profile from './components/auth/Profile';
 import AnnouncementManagement from './components/admin/AnnouncementManagement';
 import CreateAnnouncement from './components/admin/CreateAnnouncement';
 import EditAnnouncement from './components/admin/EditAnnouncement';
+import CertificateList from './components/certificates/CertificateList';
+import CertificateDetails from './components/certificates/CertificateDetails';
+import CertificateApplication from './components/certificates/CertificateApplication';
 import AuthService from './services/auth.service';
 
 // Protected route component
@@ -69,6 +72,21 @@ function App() {
                 <RequestDetails />
               </ProtectedRoute>
             } />
+            <Route path="/certificates" element={
+              <ProtectedRoute>
+                <CertificateList />
+              </ProtectedRoute>
+            } />
+            <Route path="/certificates/apply" element={
+              <ProtectedRoute>
+                <CertificateApplication />
+              </ProtectedRoute>
+            } />
+            <Route path="/certificates/:id" element={
+              <ProtectedRoute>
+                <CertificateDetails />
+              </ProtectedRoute>
+            } />
 
             {/* Admin routes */}
             <Route path="/admin/requests" element={
@@ -89,6 +107,11 @@ function App() {
             <Route path="/admin/announcements/edit/:id" element={
               <AdminRoute>
                 <EditAnnouncement />
+              </AdminRoute>
+            } />
+            <Route path="/admin/certificates" element={
+              <AdminRoute>
+                <CertificateList />
               </AdminRoute>
             } />
           </Routes>
