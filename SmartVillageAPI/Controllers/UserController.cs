@@ -17,11 +17,13 @@ namespace SmartVillageAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly JwtService _jwtService;
+        private readonly ILogger<UserController> _logger;
 
-        public UserController(ApplicationDbContext context, JwtService jwtService)
+        public UserController(ApplicationDbContext context, JwtService jwtService, ILogger<UserController> logger)
         {
             _context = context;
             _jwtService = jwtService;
+            _logger = logger;
         }
 
         // Register new user
@@ -74,6 +76,7 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred during registration for user {Email}", model.EmailId);
                 return StatusCode(500, new { message = "An error occurred during registration", error = ex.Message });
             }
         }
@@ -122,6 +125,7 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred during login for user {Email}", model.EmailId);
                 return StatusCode(500, new { message = "An error occurred during login", error = ex.Message });
             }
         }
@@ -158,6 +162,7 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while retrieving user profile");
                 return StatusCode(500, new { message = "An error occurred while retrieving the user profile", error = ex.Message });
             }
         }
@@ -195,6 +200,7 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while updating user profile");
                 return StatusCode(500, new { message = "An error occurred while updating the user profile", error = ex.Message });
             }
         }

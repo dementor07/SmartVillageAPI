@@ -1,4 +1,3 @@
-// Web/smart-village-frontend/src/services/certificate.service.js
 import api from '../api';
 
 const getCertificates = (status) => {
@@ -15,10 +14,12 @@ const getCertificateById = (id) => {
 };
 
 const createCertificate = (certificateData) => {
+    // Make sure we're using the correct data structure expected by the API
     return api.post('/Certificate', certificateData);
 };
 
 const updateCertificateStatus = (id, statusData) => {
+    // Ensure statusData contains the required fields: status, and optionally rejectionReason or approvalComments
     return api.put(`/Certificate/${id}/status`, statusData);
 };
 

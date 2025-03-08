@@ -1,5 +1,5 @@
 // Web/smart-village-frontend/src/components/certificates/CertificateList.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import CertificateService from '../../services/certificate.service';
 import AuthService from '../../services/auth.service';
@@ -11,11 +11,7 @@ const CertificateList = () => {
     const [filter, setFilter] = useState('');
     const isAdmin = AuthService.isAdmin();
 
-    useEffect(() => {
-        fetchCertificates();
-    }, [filter]);
-
-    const fetchCertificates = async () => {
+    const fetchCertificates = useCallback(async () => {
         setLoading(true);
         try {
             const response = isAdmin
@@ -28,7 +24,11 @@ const CertificateList = () => {
             setError('Failed to load certificates');
             setLoading(false);
         }
-    };
+    }, [filter, isAdmin]);
+
+    useEffect(() => {
+        fetchCertificates();
+    }, [fetchCertificates]);
 
     const getStatusBadgeClass = (status) => {
         switch (status) {

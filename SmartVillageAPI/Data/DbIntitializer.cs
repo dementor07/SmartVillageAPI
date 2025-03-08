@@ -51,6 +51,52 @@ namespace SmartVillageAPI.Data
                 };
 
                 context.Users.Add(admin);
+
+                // Also add a sample resident user for testing
+                byte[] residentSalt = new byte[16];
+                using (var rng = RandomNumberGenerator.Create())
+                {
+                    rng.GetBytes(residentSalt);
+                }
+
+                string residentHashedPassword = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                    password: "Resident@123",
+                    salt: residentSalt,
+                    prf: KeyDerivationPrf.HMACSHA256,
+                    iterationCount: 10000,
+                    numBytesRequested: 256 / 8));
+
+                var resident = new User
+                {
+                    FullName = "Sample Resident",
+                    EmailId = "resident@smartvillage.com",
+                    PasswordHash = residentHashedPassword,
+                    PasswordSalt = Convert.ToBase64String(residentSalt),
+                    MobileNo = "9876543211",
+                    State = "Demo State",
+                    District = "Demo District",
+                    Village = "Demo Village",
+                    Address = "123 Demo Street",
+                    RoleName = "Resident",
+                    CreatedAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                context.Users.Add(resident);
+                context.SaveChanges();
+
+                // Add a sample announcement
+                var announcement = new Announcement
+                {
+                    UserId = admin.Id,
+                    Title = "Welcome to Smart Village Portal",
+                    Content = "This is a sample announcement to welcome all residents to our new Smart Village Portal. Stay connected and enjoy the digital services!",
+                    Category = "General",
+                    IsPublished = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                context.Announcements.Add(announcement);
                 context.SaveChanges();
             }
             catch (Exception ex)

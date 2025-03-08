@@ -1,5 +1,4 @@
-﻿// SmartVillageAPI/Controllers/CertificateController.cs
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartVillageAPI.Data;
@@ -132,7 +131,7 @@ namespace SmartVillageAPI.Controllers
         // Create certificate application
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreateCertificate([FromBody] Certificate model)
+        public async Task<IActionResult> CreateCertificate([FromBody] CreateCertificateModel model)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -150,19 +149,45 @@ namespace SmartVillageAPI.Controllers
                 if (string.IsNullOrWhiteSpace(model.ApplicantName))
                     return BadRequest(new { message = "Applicant name is required" });
 
-                // Set initial properties
-                model.UserId = id;
-                model.Status = "Pending";
-                model.CreatedAt = DateTime.UtcNow;
-                model.ReferenceNumber = GenerateReferenceNumber();
+                // Create new certificate entity from model
+                var certificate = new Certificate
+                {
+                    UserId = id,
+                    CertificateType = model.CertificateType,
+                    ApplicantName = model.ApplicantName,
+                    Gender = model.Gender,
+                    Age = model.Age,
+                    Address = model.Address,
+                    FatherName = model.FatherName,
+                    Religion = model.Religion,
+                    Caste = model.Caste,
+                    PostOffice = model.PostOffice,
+                    PinCode = model.PinCode,
+                    State = model.State,
+                    District = model.District,
+                    Village = model.Village,
+                    Taluk = model.Taluk,
+                    Location = model.Location,
+                    FamilyMemberName = model.FamilyMemberName,
+                    Relationship = model.Relationship,
+                    AnnualIncome = model.AnnualIncome,
+                    CompanyName = model.CompanyName,
+                    CompanySector = model.CompanySector,
+                    IdentificationMark1 = model.IdentificationMark1,
+                    IdentificationMark2 = model.IdentificationMark2,
+                    IdentificationMark3 = model.IdentificationMark3,
+                    Status = "Pending",
+                    CreatedAt = DateTime.UtcNow,
+                    ReferenceNumber = GenerateReferenceNumber()
+                };
 
-                _context.Certificates.Add(model);
+                _context.Certificates.Add(certificate);
                 await _context.SaveChangesAsync();
 
                 return Ok(new
                 {
-                    id = model.Id,
-                    referenceNumber = model.ReferenceNumber,
+                    id = certificate.Id,
+                    referenceNumber = certificate.ReferenceNumber,
                     message = "Certificate application submitted successfully!"
                 });
             }
@@ -234,5 +259,32 @@ namespace SmartVillageAPI.Controllers
         public required string Status { get; set; } // Approved or Rejected
         public string? RejectionReason { get; set; }
         public string? ApprovalComments { get; set; }
+    }
+
+    public class CreateCertificateModel
+    {
+        public required string CertificateType { get; set; }
+        public required string ApplicantName { get; set; }
+        public string? Gender { get; set; }
+        public int? Age { get; set; }
+        public string? Address { get; set; }
+        public string? FatherName { get; set; }
+        public string? Religion { get; set; }
+        public string? Caste { get; set; }
+        public string? PostOffice { get; set; }
+        public string? PinCode { get; set; }
+        public string? State { get; set; }
+        public string? District { get; set; }
+        public string? Village { get; set; }
+        public string? Taluk { get; set; }
+        public string? Location { get; set; }
+        public string? FamilyMemberName { get; set; }
+        public string? Relationship { get; set; }
+        public string? AnnualIncome { get; set; }
+        public string? CompanyName { get; set; }
+        public string? CompanySector { get; set; }
+        public string? IdentificationMark1 { get; set; }
+        public string? IdentificationMark2 { get; set; }
+        public string? IdentificationMark3 { get; set; }
     }
 }

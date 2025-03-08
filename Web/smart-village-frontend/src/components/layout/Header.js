@@ -42,15 +42,14 @@ const AuthenticatedHeader = ({ isAdmin }) => {
                             {/* Admin Links */}
                             {isAdmin && (
                                 <li className="nav-item dropdown">
-                                    <a
-                                        className="nav-link text-white dropdown-toggle"
-                                        href="#"
-                                        role="button"
+                                    <button
+                                        className="nav-link text-white dropdown-toggle border-0 bg-transparent"
+                                        type="button"
                                         onClick={() => setShowDropdown(!showDropdown)}
                                         aria-expanded={showDropdown}
                                     >
                                         Admin
-                                    </a>
+                                    </button>
                                     <ul className={`dropdown-menu${showDropdown ? ' show' : ''}`}>
                                         <li><Link className="dropdown-item" to="/admin/announcements">Manage Announcements</Link></li>
                                         <li><Link className="dropdown-item" to="/admin/requests">Manage Service Requests</Link></li>
@@ -61,15 +60,14 @@ const AuthenticatedHeader = ({ isAdmin }) => {
 
                             {/* User Menu */}
                             <li className="nav-item dropdown">
-                                <a
-                                    className="nav-link text-white"
-                                    href="#"
-                                    role="button"
+                                <button
+                                    className="nav-link text-white border-0 bg-transparent"
+                                    type="button"
                                     data-bs-toggle="dropdown"
                                     aria-expanded="false"
                                 >
                                     <i className="fas fa-user me-1"></i> {user?.fullName || 'User'}
-                                </a>
+                                </button>
                                 <ul className="dropdown-menu dropdown-menu-end">
                                     <li><Link className="dropdown-item" to="/profile">My Profile</Link></li>
                                     <li><hr className="dropdown-divider" /></li>

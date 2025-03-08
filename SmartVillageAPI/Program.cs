@@ -9,6 +9,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add services to the container
+// Configure logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 // Add database context
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -37,7 +43,7 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.FromMinutes(5) // Added 5-minute clock skew to prevent timing issues
     };
 });
 
@@ -79,13 +85,20 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Configure CORS
+// Configure CORS - properly configured for both development and production
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         builder => builder.AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader());
+
+    options.AddPolicy("Production",
+        builder => builder
+            .WithOrigins("https://yourproductionurl.com")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials());
 });
 
 var app = builder.Build();
@@ -95,10 +108,15 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors("AllowAll"); // Use permissive CORS in development
+}
+else
+{
+    app.UseHsts();
+    app.UseCors("Production"); // Use restricted CORS in production
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -112,8 +130,15 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("Ensuring database is created...");
         context.Database.EnsureCreated(); // This creates the database if it doesn't exist
+
+        logger.LogInformation("Seeding database...");
         DbInitializer.SeedData(context); // Just seed data, no migrations
+
+        logger.LogInformation("Database initialization complete");
     }
     catch (Exception ex)
     {
