@@ -33,7 +33,14 @@ const Login = () => {
 
             try {
                 await AuthService.login(values.emailId, values.password);
-                navigate('/dashboard');
+
+                // Handle redirect after successful login
+                const redirectPath = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
+                // Clear the stored path
+                sessionStorage.removeItem('redirectAfterLogin');
+
+                // Redirect to the saved path or dashboard
+                navigate(redirectPath);
             } catch (error) {
                 const resMessage = error.response?.data?.message ||
                     'An error occurred during login.';
@@ -60,6 +67,11 @@ const Login = () => {
                             {message && (
                                 <div className="alert alert-danger" role="alert">
                                     {message}
+                                </div>
+                            )}
+                            {location.state?.from && (
+                                <div className="alert alert-info">
+                                    You need to login to access that page.
                                 </div>
                             )}
                             <form onSubmit={formik.handleSubmit}>

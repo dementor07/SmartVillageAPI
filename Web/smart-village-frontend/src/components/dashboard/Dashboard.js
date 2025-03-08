@@ -1,50 +1,46 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import AuthService from '../../services/auth.service';
+import AdminDashboard from './AdminDashboard';
+import UserDashboard from './UserDashboard';
 
 const Dashboard = () => {
-    return (
-        <div className="container mt-4">
-            <h2 className="mb-4">Dashboard</h2>
-            <div className="row">
-                <div className="col-md-4 mb-4">
-                    <div className="card h-100">
-                        <div className="card-body text-center">
-                            <i className="fas fa-tools fa-3x text-primary mb-3"></i>
-                            <h3 className="card-title">My Service Requests</h3>
-                            <p className="card-text">View and manage your service requests</p>
-                            <Link to="/service-requests" className="btn btn-primary">
-                                View Requests
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-4 mb-4">
-                    <div className="card h-100">
-                        <div className="card-body text-center">
-                            <i className="fas fa-bullhorn fa-3x text-primary mb-3"></i>
-                            <h3 className="card-title">Announcements</h3>
-                            <p className="card-text">Stay updated with the latest announcements</p>
-                            <Link to="/announcements" className="btn btn-primary">
-                                View Announcements
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-4 mb-4">
-                    <div className="card h-100">
-                        <div className="card-body text-center">
-                            <i className="fas fa-user fa-3x text-primary mb-3"></i>
-                            <h3 className="card-title">My Profile</h3>
-                            <p className="card-text">View and update your profile information</p>
-                            <Link to="/profile" className="btn btn-primary">
-                                View Profile
-                            </Link>
-                        </div>
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        // Check authentication and admin status
+        const authenticated = AuthService.isTokenValid();
+        setIsAuthenticated(authenticated);
+
+        if (authenticated) {
+            setIsAdmin(AuthService.isAdmin());
+        }
+
+        setLoading(false);
+    }, []);
+
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="container mt-4">
+                <div className="d-flex justify-content-center my-5">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
                     </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    }
+
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+        return <Navigate to="/login" />;
+    }
+
+    // Render the appropriate dashboard based on role
+    return isAdmin ? <AdminDashboard /> : <UserDashboard />;
 };
 
 export default Dashboard;

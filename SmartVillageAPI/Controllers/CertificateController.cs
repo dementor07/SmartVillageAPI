@@ -13,10 +13,12 @@ namespace SmartVillageAPI.Controllers
     public class CertificateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<CertificateController> _logger;
 
-        public CertificateController(ApplicationDbContext context)
+        public CertificateController(ApplicationDbContext context, ILogger<CertificateController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // Get all certificates (admin only)
@@ -55,7 +57,8 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while retrieving certificates", error = ex.Message });
+                _logger.LogError(ex, "Error occurred while retrieving certificates");
+                return StatusCode(500, new { message = "An error occurred while retrieving certificates" });
             }
         }
 
@@ -90,7 +93,8 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while retrieving your certificates", error = ex.Message });
+                _logger.LogError(ex, "Error occurred while retrieving user certificates");
+                return StatusCode(500, new { message = "An error occurred while retrieving your certificates" });
             }
         }
 
@@ -120,7 +124,8 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while retrieving the certificate", error = ex.Message });
+                _logger.LogError(ex, "Error occurred while retrieving certificate details for ID: {CertificateId}", id);
+                return StatusCode(500, new { message = "An error occurred while retrieving the certificate" });
             }
         }
 
@@ -138,6 +143,14 @@ namespace SmartVillageAPI.Controllers
                 if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
                     return Unauthorized(new { message = "Invalid or expired token" });
 
+                // Basic input validation for certificate type
+                if (string.IsNullOrWhiteSpace(model.CertificateType))
+                    return BadRequest(new { message = "Certificate type is required" });
+
+                if (string.IsNullOrWhiteSpace(model.ApplicantName))
+                    return BadRequest(new { message = "Applicant name is required" });
+
+                // Set initial properties
                 model.UserId = id;
                 model.Status = "Pending";
                 model.CreatedAt = DateTime.UtcNow;
@@ -155,7 +168,8 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while creating the certificate application", error = ex.Message });
+                _logger.LogError(ex, "Error occurred while creating certificate application");
+                return StatusCode(500, new { message = "An error occurred while creating the certificate application" });
             }
         }
 
@@ -173,11 +187,22 @@ namespace SmartVillageAPI.Controllers
                 if (certificate == null)
                     return NotFound(new { message = "Certificate not found" });
 
+                // Validate state transition
+                if (certificate.Status != "Pending")
+                    return BadRequest(new { message = "Only certificates with 'Pending' status can be updated" });
+
+                // Validate the new status
+                if (model.Status != "Approved" && model.Status != "Rejected")
+                    return BadRequest(new { message = "Status must be either 'Approved' or 'Rejected'" });
+
                 certificate.Status = model.Status;
                 certificate.ReviewedAt = DateTime.UtcNow;
 
                 if (model.Status == "Rejected")
                 {
+                    if (string.IsNullOrWhiteSpace(model.RejectionReason))
+                        return BadRequest(new { message = "Rejection reason is required" });
+
                     certificate.RejectionReason = model.RejectionReason;
                 }
                 else if (model.Status == "Approved")
@@ -190,7 +215,8 @@ namespace SmartVillageAPI.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while updating the certificate status", error = ex.Message });
+                _logger.LogError(ex, "Error occurred while updating certificate status for ID: {CertificateId}", id);
+                return StatusCode(500, new { message = "An error occurred while updating the certificate status" });
             }
         }
 

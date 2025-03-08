@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Home from './components/Home';
@@ -19,34 +19,61 @@ import CertificateList from './components/certificates/CertificateList';
 import CertificateDetails from './components/certificates/CertificateDetails';
 import CertificateApplication from './components/certificates/CertificateApplication';
 import AuthService from './services/auth.service';
+import { ProtectedRoute, AdminRoute } from './components/auth/ProtectedRoutes';
+import AuthenticatedHeader from './components/layout/AuthenticatedHeader';
 
-// Protected route component
-const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = AuthService.isTokenValid();
-  return isAuthenticated ? children : <Navigate to="/login" />;
-};
+// Root component that checks auth state for the app
+const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-// Admin route component
-const AdminRoute = ({ children }) => {
-  const isAuthenticated = AuthService.isTokenValid();
-  const isAdmin = AuthService.isAdmin();
-  return isAuthenticated && isAdmin ? children : <Navigate to="/login" />;
-};
+  // Check authentication status on mount and when auth changes
+  useEffect(() => {
+    const checkAuth = () => {
+      const authenticated = AuthService.isTokenValid();
+      setIsAuthenticated(authenticated);
+      setIsAdmin(authenticated && AuthService.isAdmin());
+      setCheckingAuth(false);
+    };
 
-function App() {
+    checkAuth();
+
+    // Set up event listener for storage changes (for multi-tab support)
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Don't render anything while checking authentication
+  if (checkingAuth) {
+    return <div className="d-flex justify-content-center align-items-center vh-100">
+      <div className="spinner-border text-primary" role="status">
+        <span className="visually-hidden">Loading...</span>
+      </div>
+    </div>;
+  }
+
   return (
     <BrowserRouter>
       <div className="d-flex flex-column min-vh-100">
-        <Header />
+        {isAuthenticated ? <AuthenticatedHeader isAdmin={isAdmin} /> : <Header />}
         <main className="flex-grow-1">
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
+            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
             <Route path="/announcements" element={<AnnouncementList />} />
             <Route path="/announcements/:id" element={<AnnouncementDetails />} />
 
-            {/* Protected routes */}
+            {/* Protected routes - Resident */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
@@ -111,15 +138,18 @@ function App() {
             } />
             <Route path="/admin/certificates" element={
               <AdminRoute>
-                <CertificateList />
+                <CertificateList adminView={true} />
               </AdminRoute>
             } />
+
+            {/* Catch all route - redirect to home */}
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
         <Footer />
       </div>
     </BrowserRouter>
   );
-}
+};
 
 export default App;
