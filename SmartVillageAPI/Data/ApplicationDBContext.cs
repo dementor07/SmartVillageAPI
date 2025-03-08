@@ -15,6 +15,9 @@ namespace SmartVillageAPI.Data
         public DbSet<Announcement> Announcements { get; set; } = null!;
         public DbSet<Certificate> Certificates { get; set; } = null!;
 
+        // New models for schemes
+        public DbSet<Scheme> Schemes { get; set; } = null!;
+        public DbSet<SchemeApplication> SchemeApplications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -43,6 +46,26 @@ namespace SmartVillageAPI.Data
                 .WithMany()
                 .HasForeignKey(c => c.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // New relationships for schemes
+            modelBuilder.Entity<SchemeApplication>()
+                .HasOne(sa => sa.Scheme)
+                .WithMany()
+                .HasForeignKey(sa => sa.SchemeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SchemeApplication>()
+                .HasOne(sa => sa.User)
+                .WithMany()
+                .HasForeignKey(sa => sa.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SchemeApplication>()
+                .HasOne(sa => sa.ReviewedByUser)
+                .WithMany()
+                .HasForeignKey(sa => sa.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
         }
     }
 }

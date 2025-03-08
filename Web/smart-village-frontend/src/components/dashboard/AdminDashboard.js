@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import RequestService from '../../services/request.service';
 import CertificateService from '../../services/certificate.service';
 import AnnouncementService from '../../services/announcement.service';
+import SchemeService from '../../services/scheme.service';
 import AuthService from '../../services/auth.service';
 
 const AdminDashboard = () => {
@@ -12,10 +13,14 @@ const AdminDashboard = () => {
             totalRequests: 0,
             pendingCertificates: 0,
             totalCertificates: 0,
-            totalAnnouncements: 0
+            pendingSchemeApplications: 0,
+            totalSchemeApplications: 0,
+            totalAnnouncements: 0,
+            totalSchemes: 0
         },
         recentRequests: [],
-        recentCertificates: []
+        recentCertificates: [],
+        recentSchemeApplications: []
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -40,16 +45,26 @@ const AdminDashboard = () => {
                 setLoading(true);
 
                 // Fetch all admin data in parallel
-                const [requestsResponse, certificatesResponse, announcementsResponse] = await Promise.all([
+                const [
+                    requestsResponse,
+                    certificatesResponse,
+                    announcementsResponse,
+                    schemesResponse,
+                    schemeApplicationsResponse
+                ] = await Promise.all([
                     RequestService.getAllRequests(),
                     CertificateService.getCertificates(),
-                    AnnouncementService.getAnnouncements()
+                    AnnouncementService.getAnnouncements(),
+                    SchemeService.getSchemes(),
+                    SchemeService.getAllApplications()
                 ]);
 
                 // Calculate and set dashboard data
                 const allRequests = requestsResponse.data || [];
                 const allCertificates = certificatesResponse.data || [];
                 const allAnnouncements = announcementsResponse.data || [];
+                const allSchemes = schemesResponse.data || [];
+                const allSchemeApplications = schemeApplicationsResponse.data || [];
 
                 setDashboardData({
                     stats: {
@@ -57,13 +72,19 @@ const AdminDashboard = () => {
                         totalRequests: allRequests.length,
                         pendingCertificates: allCertificates.filter(c => c.status === 'Pending').length,
                         totalCertificates: allCertificates.length,
-                        totalAnnouncements: allAnnouncements.length
+                        pendingSchemeApplications: allSchemeApplications.filter(a => a.status === 'Pending').length,
+                        totalSchemeApplications: allSchemeApplications.length,
+                        totalAnnouncements: allAnnouncements.length,
+                        totalSchemes: allSchemes.length
                     },
                     recentRequests: allRequests
                         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                         .slice(0, 5),
                     recentCertificates: allCertificates
                         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        .slice(0, 5),
+                    recentSchemeApplications: allSchemeApplications
+                        .sort((a, b) => new Date(b.submittedAt || b.createdAt) - new Date(a.submittedAt || a.createdAt))
                         .slice(0, 5)
                 });
 
@@ -107,7 +128,7 @@ const AdminDashboard = () => {
                         <div className="card-body">
                             <h2 className="card-title">Welcome to Admin Dashboard</h2>
                             <p className="card-text">
-                                Manage village services, process certificate applications, and publish announcements.
+                                Manage village services, process applications, and publish announcements.
                             </p>
                         </div>
                     </div>
@@ -141,28 +162,26 @@ const AdminDashboard = () => {
                     </div>
                 </div>
                 <div className="col-md-3 mb-3">
-                    <div className="card text-white bg-info h-100">
+                    <div className="card text-white bg-warning text-dark h-100">
                         <div className="card-body text-center">
-                            <h1 className="display-4">{dashboardData.stats.totalAnnouncements}</h1>
-                            <h5>Announcements</h5>
-                            <h6>Published to village</h6>
+                            <h1 className="display-4">{dashboardData.stats.pendingSchemeApplications}</h1>
+                            <h5>Pending Scheme Apps</h5>
+                            <h6>Out of {dashboardData.stats.totalSchemeApplications} total</h6>
                         </div>
                         <div className="card-footer d-grid">
-                            <Link to="/admin/announcements" className="btn btn-light">Manage Announcements</Link>
+                            <Link to="/admin/schemes/applications" className="btn btn-dark">Manage Applications</Link>
                         </div>
                     </div>
                 </div>
                 <div className="col-md-3 mb-3">
-                    <div className="card text-white bg-secondary h-100">
+                    <div className="card text-white bg-info h-100">
                         <div className="card-body text-center">
-                            <h1 className="display-4">
-                                <i className="fas fa-bullhorn"></i>
-                            </h1>
-                            <h5>Create Announcement</h5>
-                            <h6>Inform residents</h6>
+                            <h1 className="display-4">{dashboardData.stats.totalAnnouncements}</h1>
+                            <h5>Announcements</h5>
+                            <h6>{dashboardData.stats.totalSchemes} Available Schemes</h6>
                         </div>
                         <div className="card-footer d-grid">
-                            <Link to="/admin/announcements/create" className="btn btn-light">Create New</Link>
+                            <Link to="/admin/announcements" className="btn btn-light">Manage Content</Link>
                         </div>
                     </div>
                 </div>
@@ -171,7 +190,7 @@ const AdminDashboard = () => {
             {/* Recent Activity Section */}
             <div className="row">
                 {/* Recent Service Requests */}
-                <div className="col-md-6 mb-4">
+                <div className="col-md-4 mb-4">
                     <div className="card border-primary h-100">
                         <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <h5 className="mb-0">Recent Service Requests</h5>
@@ -210,7 +229,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Recent Certificate Applications */}
-                <div className="col-md-6 mb-4">
+                <div className="col-md-4 mb-4">
                     <div className="card border-success h-100">
                         <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
                             <h5 className="mb-0">Recent Certificate Applications</h5>
@@ -249,9 +268,50 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Recent Scheme Applications */}
+                <div className="col-md-4 mb-4">
+                    <div className="card border-warning h-100">
+                        <div className="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                            <h5 className="mb-0">Recent Scheme Applications</h5>
+                            <Link to="/admin/schemes/applications" className="btn btn-sm btn-dark">View All</Link>
+                        </div>
+                        <div className="card-body">
+                            {dashboardData.recentSchemeApplications.length > 0 ? (
+                                <div className="list-group">
+                                    {dashboardData.recentSchemeApplications.map(app => (
+                                        <Link
+                                            to={`/schemes/applications/${app.id}`}
+                                            className="list-group-item list-group-item-action"
+                                            key={app.id}
+                                        >
+                                            <div className="d-flex w-100 justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 className="mb-1">{app.schemeName}</h6>
+                                                    <small>
+                                                        Applicant: {app.applicantName} |
+                                                        Ref: {app.referenceNumber || 'Pending'}
+                                                    </small>
+                                                </div>
+                                                <div>
+                                                    <span className={`badge ${app.status === 'Pending' ? 'bg-warning text-dark' :
+                                                        app.status === 'Approved' ? 'bg-success' :
+                                                            app.status === 'Rejected' ? 'bg-danger' : 'bg-secondary'
+                                                        }`}>{app.status}</span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center">No scheme applications to display.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Quick Actions Remaining the Same */}
+            {/* Quick Actions */}
             <div className="row mb-4">
                 <div className="col-12">
                     <div className="card">
@@ -260,26 +320,38 @@ const AdminDashboard = () => {
                         </div>
                         <div className="card-body">
                             <div className="row text-center">
-                                <div className="col-md-3 mb-3">
-                                    <Link to="/admin/announcements/create" className="btn btn-lg btn-outline-primary w-100">
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/admin/announcements/create" className="btn btn-lg btn-outline-primary w-100 h-100">
                                         <i className="fas fa-bullhorn mb-2 d-block fs-2"></i>
                                         Create Announcement
                                     </Link>
                                 </div>
-                                <div className="col-md-3 mb-3">
-                                    <Link to="/admin/requests" className="btn btn-lg btn-outline-success w-100">
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/admin/requests" className="btn btn-lg btn-outline-primary w-100 h-100">
                                         <i className="fas fa-tasks mb-2 d-block fs-2"></i>
                                         Manage Requests
                                     </Link>
                                 </div>
-                                <div className="col-md-3 mb-3">
-                                    <Link to="/admin/certificates" className="btn btn-lg btn-outline-info w-100">
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/admin/certificates" className="btn btn-lg btn-outline-success w-100 h-100">
                                         <i className="fas fa-certificate mb-2 d-block fs-2"></i>
                                         Manage Certificates
                                     </Link>
                                 </div>
-                                <div className="col-md-3 mb-3">
-                                    <Link to="/profile" className="btn btn-lg btn-outline-secondary w-100">
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/admin/schemes" className="btn btn-lg btn-outline-info w-100 h-100">
+                                        <i className="fas fa-hand-holding-usd mb-2 d-block fs-2"></i>
+                                        Manage Schemes
+                                    </Link>
+                                </div>
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/admin/schemes/applications" className="btn btn-lg btn-outline-warning w-100 h-100">
+                                        <i className="fas fa-clipboard-check mb-2 d-block fs-2"></i>
+                                        Review Applications
+                                    </Link>
+                                </div>
+                                <div className="col-md-2 mb-3">
+                                    <Link to="/profile" className="btn btn-lg btn-outline-secondary w-100 h-100">
                                         <i className="fas fa-user-cog mb-2 d-block fs-2"></i>
                                         My Profile
                                     </Link>

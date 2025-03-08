@@ -1,5 +1,5 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Home from './components/Home';
@@ -18,9 +18,15 @@ import EditAnnouncement from './components/admin/EditAnnouncement';
 import CertificateList from './components/certificates/CertificateList';
 import CertificateDetails from './components/certificates/CertificateDetails';
 import CertificateApplication from './components/certificates/CertificateApplication';
+
+// New scheme components
+import SchemeList from './components/schemes/SchemeList';
+import SchemeDetails from './components/schemes/SchemeDetails';
+import SchemeApplicationForm from './components/schemes/SchemeApplicationForm';
+import MyApplications from './components/schemes/MyApplications';
+import ApplicationDetails from './components/schemes/ApplicationDetails';
+import AdminApplicationsList from './components/schemes/AdminApplicationsList';
 import AuthService from './services/auth.service';
-import { ProtectedRoute, AdminRoute } from './components/auth/ProtectedRoute';
-import AuthenticatedHeader from './components/layout/Header';
 
 // Create a global navigation context
 const NavigationContext = createContext(null);
@@ -122,7 +128,7 @@ const AppContent = () => {
   return (
     <NavigationProvider>
       <div className="d-flex flex-column min-vh-100">
-        {isAuthenticated ? <AuthenticatedHeader isAdmin={isAdmin} /> : <Header />}
+        <Header />
         <main className="flex-grow-1">
           <Routes>
             {/* Public routes */}
@@ -131,6 +137,8 @@ const AppContent = () => {
             <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
             <Route path="/announcements" element={<AnnouncementList />} />
             <Route path="/announcements/:id" element={<AnnouncementDetails />} />
+            <Route path="/schemes" element={<SchemeList />} />
+            <Route path="/schemes/:id" element={<SchemeDetails />} />
 
             {/* Error handling route */}
             <Route path="/error" element={<div className="container mt-4">
@@ -181,6 +189,23 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
 
+            {/* New scheme routes - Protected */}
+            <Route path="/schemes/:id/apply" element={
+              <ProtectedRoute>
+                <SchemeApplicationForm />
+              </ProtectedRoute>
+            } />
+            <Route path="/schemes/my-applications" element={
+              <ProtectedRoute>
+                <MyApplications />
+              </ProtectedRoute>
+            } />
+            <Route path="/schemes/applications/:id" element={
+              <ProtectedRoute>
+                <ApplicationDetails />
+              </ProtectedRoute>
+            } />
+
             {/* Admin routes */}
             <Route path="/admin/requests" element={
               <AdminRoute>
@@ -208,6 +233,18 @@ const AppContent = () => {
               </AdminRoute>
             } />
 
+            {/* New admin scheme routes */}
+            <Route path="/admin/schemes" element={
+              <AdminRoute>
+                <SchemeList adminView={true} />
+              </AdminRoute>
+            } />
+            <Route path="/admin/schemes/applications" element={
+              <AdminRoute>
+                <AdminApplicationsList />
+              </AdminRoute>
+            } />
+
             {/* Catch all route - redirect to home */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
@@ -216,6 +253,55 @@ const AppContent = () => {
       </div>
     </NavigationProvider>
   );
+};
+
+/**
+ * ProtectedRoute Component
+ * 
+ * This component provides route protection for authenticated users.
+ * It ensures that only logged-in users can access specific routes.
+ */
+export const ProtectedRoute = ({ children }) => {
+  const location = useLocation();
+  const isAuthenticated = AuthService.isTokenValid();
+
+  if (!isAuthenticated) {
+    return <Navigate
+      to="/login"
+      state={{
+        from: location,
+        message: 'You must be logged in to access this page.'
+      }}
+      replace
+    />;
+  }
+
+  return children;
+};
+
+/**
+ * AdminRoute Component
+ * 
+ * This component provides route protection specifically for admin users.
+ * It ensures that only authenticated admin users can access admin-specific routes.
+ */
+export const AdminRoute = ({ children }) => {
+  const location = useLocation();
+  const isAuthenticated = AuthService.isTokenValid();
+  const isAdmin = AuthService.isAdmin();
+
+  if (!isAuthenticated || !isAdmin) {
+    return <Navigate
+      to="/dashboard"
+      state={{
+        from: location,
+        message: 'You do not have permission to access this page.'
+      }}
+      replace
+    />;
+  }
+
+  return children;
 };
 
 // Root component that wraps AppContent with BrowserRouter
