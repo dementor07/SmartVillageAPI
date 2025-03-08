@@ -6,11 +6,12 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SmartVillageAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCertificatesTable : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // First create the Users table
             migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
@@ -36,6 +37,77 @@ namespace SmartVillageAPI.Migrations
                     table.PrimaryKey("PK_Users", x => x.Id);
                 });
 
+            // Create index on EmailId
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_EmailId",
+                table: "Users",
+                column: "EmailId",
+                unique: true);
+
+            // Create Announcements table with proper foreign key constraint
+            migrationBuilder.CreateTable(
+                name: "Announcements",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IsPublished = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Announcements", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Announcements_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Announcements_UserId",
+                table: "Announcements",
+                column: "UserId");
+
+            // Create ServiceRequests table with proper foreign key constraint
+            migrationBuilder.CreateTable(
+                name: "ServiceRequests",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Resolution = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ResolvedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ServiceRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ServiceRequests_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceRequests_UserId",
+                table: "ServiceRequests",
+                column: "UserId");
+
+            // Create Certificates table
             migrationBuilder.CreateTable(
                 name: "Certificates",
                 columns: table => new
@@ -91,43 +163,19 @@ namespace SmartVillageAPI.Migrations
                 name: "IX_Certificates_UserId",
                 table: "Certificates",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Users_EmailId",
-                table: "Users",
-                column: "EmailId",
-                unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Announcements_Users_UserId",
-                table: "Announcements",
-                column: "UserId",
-                principalTable: "Users",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_ServiceRequests_Users_UserId",
-                table: "ServiceRequests",
-                column: "UserId",
-                principalTable: "Users",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Announcements_Users_UserId",
-                table: "Announcements");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_ServiceRequests_Users_UserId",
-                table: "ServiceRequests");
+            migrationBuilder.DropTable(
+                name: "Announcements");
 
             migrationBuilder.DropTable(
                 name: "Certificates");
+
+            migrationBuilder.DropTable(
+                name: "ServiceRequests");
 
             migrationBuilder.DropTable(
                 name: "Users");

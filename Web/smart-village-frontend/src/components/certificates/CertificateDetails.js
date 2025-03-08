@@ -1,5 +1,5 @@
 // Web/smart-village-frontend/src/components/certificates/CertificateDetails.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CertificateService from '../../services/certificate.service';
 import AuthService from '../../services/auth.service';
@@ -19,11 +19,8 @@ const CertificateDetails = () => {
     const [updateSuccess, setUpdateSuccess] = useState('');
     const isAdmin = AuthService.isAdmin();
 
-    useEffect(() => {
-        fetchCertificateDetails();
-    }, [id]);
-
-    const fetchCertificateDetails = async () => {
+    // Memoize the fetch function with useCallback
+    const fetchCertificateDetails = useCallback(async () => {
         try {
             const response = await CertificateService.getCertificateById(id);
             setCertificate(response.data);
@@ -32,7 +29,12 @@ const CertificateDetails = () => {
             setError('Failed to load certificate details');
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    // Use the memoized function in useEffect
+    useEffect(() => {
+        fetchCertificateDetails();
+    }, [fetchCertificateDetails]);
 
     const handleStatusChange = (e) => {
         setStatusUpdate({

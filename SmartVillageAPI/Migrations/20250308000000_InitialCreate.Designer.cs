@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartVillageAPI.Data;
 
@@ -11,9 +12,11 @@ using SmartVillageAPI.Data;
 namespace SmartVillageAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250308000000_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,7 +25,6 @@ namespace SmartVillageAPI.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            // Define User entity first (parent)
             modelBuilder.Entity("SmartVillageAPI.Models.User", b =>
             {
                 b.Property<int>("Id")
@@ -96,7 +98,6 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("Users");
             });
 
-            // Announcements entity with relationship to User
             modelBuilder.Entity("SmartVillageAPI.Models.Announcement", b =>
             {
                 b.Property<int>("Id")
@@ -139,7 +140,6 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("Announcements");
             });
 
-            // ServiceRequest entity with relationship to User
             modelBuilder.Entity("SmartVillageAPI.Models.ServiceRequest", b =>
             {
                 b.Property<int>("Id")
@@ -188,7 +188,6 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("ServiceRequests");
             });
 
-            // Certificate entity with relationship to User
             modelBuilder.Entity("SmartVillageAPI.Models.Certificate", b =>
             {
                 b.Property<int>("Id")
@@ -329,7 +328,6 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("Certificates");
             });
 
-            // Define relationships
             modelBuilder.Entity("SmartVillageAPI.Models.Announcement", b =>
             {
                 b.HasOne("SmartVillageAPI.Models.User", "User")
