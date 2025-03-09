@@ -34,7 +34,37 @@ namespace SmartVillageAPI.Models
         [StringLength(500)]
         public string? Resolution { get; set; }
 
+        // Location details
+        [StringLength(200)]
+        public string? Location { get; set; }
+
+        [StringLength(50)]
+        public string? Ward { get; set; }
+
+        [StringLength(50)]
+        public string? Landmark { get; set; }
+
+        // For priority and assignment
+        [StringLength(20)]
+        public string? Priority { get; set; } = "Normal";
+
+        public int? AssignedToUserId { get; set; }
+
+        [ForeignKey("AssignedToUserId")]
+        public User? AssignedToUser { get; set; }
+
+        // Reference number for tracking
+        [StringLength(50)]
+        public string? ReferenceNumber { get; set; }
+
+        // Timestamps
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
         public DateTime? ResolvedAt { get; set; }
+
+        public DateTime? LastUpdatedAt { get; set; }
+
+        // Document attachment (simplified)
+        public string? AttachmentUrl { get; set; }
     }
 }
