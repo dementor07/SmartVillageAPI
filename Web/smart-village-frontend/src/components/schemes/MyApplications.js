@@ -7,6 +7,7 @@ const MyApplications = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [activeFilter, setActiveFilter] = useState('all');
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -14,15 +15,31 @@ const MyApplications = () => {
     const fetchApplications = useCallback(async () => {
         try {
             setLoading(true);
+            // Get the status from URL query params if present
+            const params = new URLSearchParams(location.search);
+            const statusFilter = params.get('status');
+
+            // Set the active filter button
+            if (statusFilter) {
+                setActiveFilter(statusFilter);
+            }
+
             const response = await SchemeService.getMyApplications();
-            setApplications(response.data);
+
+            // Filter applications based on status if needed
+            let filteredApplications = response.data;
+            if (statusFilter && statusFilter !== 'all') {
+                filteredApplications = response.data.filter(app => app.status === statusFilter);
+            }
+
+            setApplications(filteredApplications);
             setLoading(false);
         } catch (error) {
             console.error('Error fetching applications:', error);
             setError('Failed to load your applications. Please try again later.');
             setLoading(false);
         }
-    }, []);
+    }, [location.search]);
 
     useEffect(() => {
         fetchApplications();
@@ -34,6 +51,12 @@ const MyApplications = () => {
             setSuccess(location.state.message);
         }
     }, [location.state]);
+
+    // Use navigate to filter applications by status
+    const filterByStatus = (status) => {
+        setActiveFilter(status);
+        navigate(`/schemes/my-applications${status === 'all' ? '' : `?status=${status}`}`);
+    };
 
     const getStatusBadgeClass = (status) => {
         switch (status) {
@@ -88,6 +111,36 @@ const MyApplications = () => {
                 </Link>
             </div>
 
+            {/* Status filter buttons */}
+            <div className="mb-4">
+                <div className="btn-group w-100">
+                    <button
+                        onClick={() => filterByStatus('all')}
+                        className={`btn ${activeFilter === 'all' ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                    >
+                        All Applications
+                    </button>
+                    <button
+                        onClick={() => filterByStatus('Pending')}
+                        className={`btn ${activeFilter === 'Pending' ? 'btn-warning' : 'btn-outline-warning'}`}
+                    >
+                        Pending
+                    </button>
+                    <button
+                        onClick={() => filterByStatus('Approved')}
+                        className={`btn ${activeFilter === 'Approved' ? 'btn-success' : 'btn-outline-success'}`}
+                    >
+                        Approved
+                    </button>
+                    <button
+                        onClick={() => filterByStatus('Rejected')}
+                        className={`btn ${activeFilter === 'Rejected' ? 'btn-danger' : 'btn-outline-danger'}`}
+                    >
+                        Rejected
+                    </button>
+                </div>
+            </div>
+
             {/* Loading state */}
             {loading ? (
                 <div className="d-flex justify-content-center my-5">
@@ -100,10 +153,21 @@ const MyApplications = () => {
                     <div className="card-body text-center p-5">
                         <i className="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
                         <h3>No applications found</h3>
-                        <p>You haven't applied for any schemes yet.</p>
-                        <Link to="/schemes" className="btn btn-primary mt-3">
-                            Browse Available Schemes
-                        </Link>
+                        {activeFilter !== 'all' ? (
+                            <>
+                                <p>No {activeFilter.toLowerCase()} applications found.</p>
+                                <button onClick={() => filterByStatus('all')} className="btn btn-primary mt-3">
+                                    View All Applications
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <p>You haven't applied for any schemes yet.</p>
+                                <Link to="/schemes" className="btn btn-primary mt-3">
+                                    Browse Available Schemes
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
             ) : (
