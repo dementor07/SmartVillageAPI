@@ -15,6 +15,26 @@ namespace SmartVillageAPI.Data
 
         public static void SeedData(ApplicationDbContext context)
         {
+            // Handle each seeding operation independently to prevent one failure from
+            // stopping the entire initialization process
+
+            // Seed Users
+            SeedUsers(context);
+
+            // Seed Schemes - Try with proper error handling
+            try
+            {
+                SeedSchemes(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding schemes: {ex.Message}");
+                // Continue execution despite error
+            }
+        }
+
+        private static void SeedUsers(ApplicationDbContext context)
+        {
             try
             {
                 // Only seed if no users exist
@@ -99,9 +119,41 @@ namespace SmartVillageAPI.Data
                     context.Announcements.Add(announcement);
                     context.SaveChanges();
                 }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't crash
+                Console.WriteLine($"Error seeding users: {ex.Message}");
+            }
+        }
 
-                // Only seed if no schemes exist
-                if (!context.Schemes.Any())
+        private static void SeedSchemes(ApplicationDbContext context)
+        {
+            // Use a direct SQL query to check if schemes exist to avoid EF Core issues
+            bool schemesExist = false;
+            try
+            {
+                using (var command = context.Database.GetDbConnection().CreateCommand())
+                {
+                    command.CommandText = "SELECT COUNT(1) FROM Schemes";
+
+                    if (command.Connection.State != System.Data.ConnectionState.Open)
+                        command.Connection.Open();
+
+                    var count = Convert.ToInt32(command.ExecuteScalar());
+                    schemesExist = count > 0;
+                }
+            }
+            catch
+            {
+                // If the query fails, assume schemes don't exist or table is inaccessible
+                schemesExist = false;
+            }
+
+            // Only seed if no schemes exist
+            if (!schemesExist)
+            {
+                try
                 {
                     // Add sample schemes based on the provided templates
                     var schemes = new List<Scheme>
@@ -138,7 +190,9 @@ namespace SmartVillageAPI.Data
                                 new { key = "servicePensionHolder", label = "Service Pension Holder", type = "select", options = new[] { "Yes", "No" }, required = true },
                                 new { key = "incomeTaxPayable", label = "Income Tax Payable", type = "select", options = new[] { "Yes", "No" }, required = true },
                                 new { key = "providentPensionTaker", label = "Provident Pension Taker", type = "select", options = new[] { "Yes", "No" }, required = true }
-                            })
+                            }),
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
                         },
                         
                         // 2. MEDISEP Scheme (Medical Insurance for State Employees and Pensioners)
@@ -181,7 +235,9 @@ namespace SmartVillageAPI.Data
                                 new { key = "childsName", label = "Child's Name", type = "text", required = false },
                                 new { key = "childsAadhar", label = "Child's Aadhar", type = "text", required = false },
                                 new { key = "childsBloodGroup", label = "Child's Blood Group", type = "text", required = false }
-                            })
+                            }),
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
                         },
 
                         // 3. Snehapoorvam Scheme (Educational Support)
@@ -221,168 +277,73 @@ namespace SmartVillageAPI.Data
                                 new { key = "natureOfSchool", label = "Nature of School", type = "text", required = true },
                                 new { key = "classStudied", label = "Class Studied", type = "text", required = true },
                                 new { key = "schoolDistrict", label = "School District", type = "text", required = true }
-                            })
-                        },
-
-                        // 4. Pension for Unmarried Women Above 50
-                        new Scheme
-                        {
-                            Name = "Pension for Unmarried Women Above 50",
-                            Description = "Social security scheme providing financial assistance to unmarried women above 50 years of age who have limited means of support.",
-                            Category = "Pension",
-                            EligibilityCriteria = JsonSerializer.Serialize(new
-                            {
-                                age = "Above 50 years",
-                                maritalStatus = "Never married",
-                                income = "Below Rs. 1,00,000 per annum",
-                                residency = "Resident of the state for at least 5 years"
                             }),
-                            Benefits = "Monthly pension of Rs. 1,500, Healthcare benefits, Priority in other welfare schemes",
-                            RequiredDocuments = "Age proof, Income certificate, Domicile certificate, Bank account details, Unmarried certificate",
-                            Department = "Department of Women and Child Development",
-                            FormFields = JsonSerializer.Serialize(new object[]
-                            {
-                                new { key = "name", label = "Name", type = "text", required = true },
-                                new { key = "gender", label = "Gender", type = "select", options = new[] { "Female" }, required = true },
-                                new { key = "age", label = "Age", type = "number", required = true },
-                                new { key = "address", label = "Address", type = "textarea", required = true },
-                                new { key = "wardNumber", label = "Ward Number", type = "text", required = true },
-                                new { key = "postOffice", label = "Post Office", type = "text", required = true },
-                                new { key = "rationCardNumber", label = "Ration Card Number", type = "text", required = true },
-                                new { key = "income", label = "Income", type = "number", required = true },
-                                new { key = "wardMemberName", label = "Ward Member Name", type = "text", required = true },
-                                new { key = "modeOfPayment", label = "Mode of Payment", type = "select", options = new[] { "Bank Transfer", "Money Order", "Post Office" }, required = true },
-                                new { key = "residingYears", label = "Residing Years", type = "number", required = true },
-                                new { key = "receivingServicePension", label = "Receiving Service Pension?", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "payingIncomeTax", label = "Paying Income Tax?", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "employeeProvidentPensionTaker", label = "Employee Provident Pension Taker?", type = "select", options = new[] { "Yes", "No" }, required = true }
-                            })
-                        },
-
-                        // 5. Indira Gandhi National Disability Pension
-                        new Scheme
-                        {
-                            Name = "Indira Gandhi National Disability Pension",
-                            Description = "Pension scheme for persons with severe or multiple disabilities living below the poverty line.",
-                            Category = "Pension",
-                            EligibilityCriteria = JsonSerializer.Serialize(new
-                            {
-                                disabilityStatus = "Severe or multiple disabilities (80% or more)",
-                                age = "18-79 years",
-                                income = "Below Poverty Line",
-                                certification = "Valid disability certificate from authorized medical authority"
-                            }),
-                            Benefits = "Monthly pension of Rs. 500, Additional disability allowance, Priority in assistive devices distribution",
-                            RequiredDocuments = "Disability certificate, BPL card, Age proof, Bank account details, Aadhaar card",
-                            Department = "Ministry of Social Justice and Empowerment",
-                            FormFields = JsonSerializer.Serialize(new object[]
-                            {
-                                new { key = "pensionCode", label = "Pension Code", type = "text", required = true },
-                                new { key = "name", label = "Name", type = "text", required = true },
-                                new { key = "gender", label = "Gender", type = "select", options = new[] { "Male", "Female", "Other" }, required = true },
-                                new { key = "wardNumber", label = "Ward Number", type = "text", required = true },
-                                new { key = "address", label = "Address", type = "textarea", required = true },
-                                new { key = "postOffice", label = "Post Office", type = "text", required = true },
-                                new { key = "rationCardNumber", label = "Ration Card Number", type = "text", required = true },
-                                new { key = "annualIncome", label = "Annual Income", type = "number", required = true },
-                                new { key = "wardMemberName", label = "Ward Member Name", type = "text", required = true },
-                                new { key = "modeOfPayment", label = "Mode of Payment", type = "select", options = new[] { "Bank Transfer", "Money Order", "Post Office" }, required = true },
-                                new { key = "residingYears", label = "Residing Years", type = "number", required = true },
-                                new { key = "landOwnership", label = "Land Ownership", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "servicePensionHolder", label = "Service Pension Holder", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "incomeTaxPayable", label = "Income Tax Payable", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "providentPensionTaker", label = "Provident Pension Taker", type = "select", options = new[] { "Yes", "No" }, required = true }
-                            })
-                        },
-
-                        // 6. Indira Gandhi National Old Age Pension
-                        new Scheme
-                        {
-                            Name = "Indira Gandhi National Old Age Pension",
-                            Description = "Social security scheme providing financial assistance to elderly persons aged 60 years and above living below the poverty line.",
-                            Category = "Pension",
-                            EligibilityCriteria = JsonSerializer.Serialize(new
-                            {
-                                age = "60 years and above",
-                                income = "Below Poverty Line",
-                                residency = "Permanent resident of the applying state"
-                            }),
-                            Benefits = "Monthly pension of Rs. 600 (60-79 years) or Rs. 800 (80+ years), Healthcare benefits, Food security",
-                            RequiredDocuments = "Age proof, BPL card, Residence proof, Bank account details, Aadhaar card",
-                            Department = "Ministry of Rural Development",
-                            FormFields = JsonSerializer.Serialize(new object[]
-                            {
-                                new { key = "pensionCode", label = "Pension Code", type = "text", required = true },
-                                new { key = "name", label = "Name", type = "text", required = true },
-                                new { key = "gender", label = "Gender", type = "select", options = new[] { "Male", "Female", "Other" }, required = true },
-                                new { key = "wardNumber", label = "Ward Number", type = "text", required = true },
-                                new { key = "address", label = "Address", type = "textarea", required = true },
-                                new { key = "postOffice", label = "Post Office", type = "text", required = true },
-                                new { key = "rationCardNumber", label = "Ration Card Number", type = "text", required = true },
-                                new { key = "annualIncome", label = "Annual Income", type = "number", required = true },
-                                new { key = "wardMemberName", label = "Ward Member Name", type = "text", required = true },
-                                new { key = "modeOfPayment", label = "Mode of Payment", type = "select", options = new[] { "Bank Transfer", "Money Order", "Post Office" }, required = true },
-                                new { key = "residingYears", label = "Residing Years", type = "number", required = true },
-                                new { key = "landOwnership", label = "Land Ownership", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "servicePensionHolder", label = "Service Pension Holder", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "incomeTaxPayable", label = "Income Tax Payable", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "providentPensionTaker", label = "Provident Pension Taker", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "healthCondition", label = "Health Condition", type = "select", options = new[] { "Good", "Fair", "Poor" }, required = true },
-                                new { key = "applicantIsPoor", label = "Applicant is Poor", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "applicantIsABeggar", label = "Applicant is a Beggar", type = "select", options = new[] { "Yes", "No" }, required = true }
-                            })
-                        },
-
-                        // 7. Vayomadhuram Scheme (Diabetes Care)
-                        new Scheme
-                        {
-                            Name = "Vayomadhuram Scheme",
-                            Description = "Healthcare scheme providing free glucometers and insulin to diabetic patients from economically weaker sections.",
-                            Category = "Healthcare",
-                            EligibilityCriteria = JsonSerializer.Serialize(new
-                            {
-                                medical = "Diagnosed with diabetes",
-                                economic = "Annual income below Rs. 2 lakhs",
-                                rationCard = "Priority ration card holder"
-                            }),
-                            Benefits = "Free glucometer, Free insulin supplies, Monthly health check-ups, Diet counseling",
-                            RequiredDocuments = "Medical certificate confirming diabetes, Income certificate, Ration card, Aadhaar card",
-                            Department = "Department of Health and Family Welfare",
-                            FormFields = JsonSerializer.Serialize(new object[]
-                            {
-                                new { key = "name", label = "Name", type = "text", required = true },
-                                new { key = "dateOfBirth", label = "Date of Birth", type = "date", required = true },
-                                new { key = "age", label = "Age", type = "number", required = true },
-                                new { key = "permanentAddress", label = "Permanent Address", type = "textarea", required = true },
-                                new { key = "presentAddress", label = "Present Address", type = "textarea", required = true },
-                                new { key = "mobileNumber", label = "Mobile Number", type = "text", required = true },
-                                new { key = "aadharNumber", label = "Aadhar Number", type = "text", required = true },
-                                new { key = "rationCardNumber", label = "Ration Card Number", type = "text", required = true },
-                                new { key = "rationPriority", label = "Ration Priority", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "selfAttested", label = "Self Attested?", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "diabetic", label = "Diabetic?", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "periodOfDiabetes", label = "Period of Diabetes (Years)", type = "number", required = true },
-                                new { key = "glucoseMeterUser", label = "Glucose Meter User?", type = "select", options = new[] { "Yes", "No" }, required = true },
-                                new { key = "treatmentDuration", label = "Treatment Duration", type = "text", required = true },
-                                new { key = "hospitalName", label = "Hospital Name", type = "text", required = true },
-                                new { key = "doctorsName", label = "Doctor's Name", type = "text", required = true },
-                                new { key = "doctorsDesignation", label = "Doctor's Designation", type = "text", required = true },
-                                new { key = "doctorsRegistrationNumber", label = "Doctor's Registration Number", type = "text", required = true },
-                                new { key = "nameOfGovtHospital", label = "Name of Govt. Hospital", type = "text", required = false },
-                                new { key = "place", label = "Place", type = "text", required = true },
-                                new { key = "date", label = "Date", type = "date", required = true }
-                            })
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
                         }
                     };
 
-                    context.Schemes.AddRange(schemes);
-                    context.SaveChanges();
+                    // First try adding schemes directly
+                    try
+                    {
+                        context.Schemes.AddRange(schemes);
+                        context.SaveChanges();
+                        Console.WriteLine("Sample schemes seeded successfully with EF Core");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error seeding schemes with EF Core: {ex.Message}");
+
+                        // If EF Core fails, try with direct SQL - insert just the first scheme
+                        try
+                        {
+                            // Make sure schemes list is not null and has at least one item
+                            if (schemes != null && schemes.Count > 0)
+                            {
+                                // Insert the first scheme directly via SQL as a fallback
+                                string scheme = schemes[0].Name ?? "Default Scheme";
+                                string description = schemes[0].Description ?? "Default Description";
+                                string category = schemes[0].Category ?? "Default Category";
+
+                                string sql = $@"
+                                IF NOT EXISTS (SELECT 1 FROM Schemes WHERE Name = '{scheme.Replace("'", "''")}')
+                                BEGIN
+                                    INSERT INTO Schemes (Name, Description, Category, EligibilityCriteria, FormFields, Benefits, 
+                                                      RequiredDocuments, Department, MoreInfoUrl, IsActive, CreatedAt)
+                                    VALUES (
+                                        '{scheme.Replace("'", "''")}', 
+                                        '{description.Replace("'", "''")}', 
+                                        '{category.Replace("'", "''")}',
+                                        '{{}}', 
+                                        '{{}}', 
+                                        'Basic benefits',
+                                        'Required documents', 
+                                        'Government', 
+                                        NULL, 
+                                        1, 
+                                        GETDATE()
+                                    )
+                                END";
+
+                                context.Database.ExecuteSqlRaw(sql);
+                                Console.WriteLine("Sample scheme seeded with direct SQL as fallback");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Cannot perform SQL fallback: schemes list is empty or null");
+                            }
+                        }
+                        catch (Exception sqlEx)
+                        {
+                            Console.WriteLine($"Error with SQL fallback for seeding schemes: {sqlEx.Message}");
+                        }
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log the error but don't crash
-                Console.WriteLine($"Database seeding error: {ex.Message}");
+                catch (Exception ex)
+                {
+                    // Log the error but don't crash
+                    Console.WriteLine($"Error in SeedSchemes method: {ex.Message}");
+                }
             }
         }
     }

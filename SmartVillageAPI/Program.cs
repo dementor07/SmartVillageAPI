@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using SmartVillageAPI.Data;
 using SmartVillageAPI.Models.Auth;
 using SmartVillageAPI.Services;
+using SmartVillageAPI.Utilities;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -133,10 +134,15 @@ using (var scope = app.Services.CreateScope())
         var logger = services.GetRequiredService<ILogger<Program>>();
 
         logger.LogInformation("Ensuring database is created...");
-        context.Database.EnsureCreated(); // This creates the database if it doesn't exist
+
+        // Ensure database exists
+        context.Database.EnsureCreated();
+
+        // Check if tables exist and create them if needed
+        await DatabaseInitializer.EnsureTablesExist(context, logger);
 
         logger.LogInformation("Seeding database...");
-        DbInitializer.SeedData(context); // Just seed data, no migrations
+        DbInitializer.SeedData(context);
 
         logger.LogInformation("Database initialization complete");
     }
