@@ -4,10 +4,68 @@ using System.Text;
 
 namespace SmartVillageAPI.Utilities
 {
+    /// <summary>
+    /// Provides utilities to ensure the database is properly initialized.
+    /// This class helps with database schema validation and migration when the application starts.
+    /// </summary>
     public static class DatabaseInitializer
     {
+        /// <summary>
+        /// Ensures that all required tables exist in the database.
+        /// This method is called during application startup to verify database schema integrity.
+        /// </summary>
+        /// <param name="context">The database context</param>
+        /// <param name="logger">Logger for diagnostic information</param>
+        /// <returns>A task representing the asynchronous operation</returns>
         public static async Task EnsureTablesExist(ApplicationDbContext context, ILogger logger)
         {
+            // Log start of database check
+            logger.LogInformation("Beginning database schema verification");
+
+            // Check database connection
+            try
+            {
+                await context.Database.CanConnectAsync();
+                logger.LogInformation("Database connection successful");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to connect to database");
+                throw; // Rethrow as this is critical
+            }
+
+            // Check if migrations have been applied
+            try
+            {
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                var pendingCount = pendingMigrations.Count();
+
+                if (pendingCount > 0)
+                {
+                    logger.LogWarning($"There are {pendingCount} pending migrations that need to be applied");
+
+                    // List the pending migrations
+                    foreach (var migration in pendingMigrations)
+                    {
+                        logger.LogInformation($"Pending migration: {migration}");
+                    }
+
+                    // Attempt to apply migrations
+                    logger.LogInformation("Attempting to apply pending migrations");
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Migrations applied successfully");
+                }
+                else
+                {
+                    logger.LogInformation("No pending migrations found");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error checking or applying migrations");
+                // Continue execution - we'll try to verify tables directly
+            }
+
             // Check if Schemes table exists and is accessible
             bool canAccessSchemes = await CanAccessTable(context, "Schemes", logger);
 
@@ -128,8 +186,25 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Schemes_Category') AND
                     logger.LogError(ex, "Error setting up database tables");
                 }
             }
+
+            // Verify all critical tables exist
+            var criticalTables = new[] { "Users", "ServiceRequests", "Certificates", "Announcements", "Schemes", "SchemeApplications" };
+            foreach (var table in criticalTables)
+            {
+                var exists = await CanAccessTable(context, table, logger);
+                logger.LogInformation($"Table '{table}' exists and is accessible: {exists}");
+            }
+
+            logger.LogInformation("Database schema verification completed");
         }
 
+        /// <summary>
+        /// Checks if a specific table exists in the database and is accessible.
+        /// </summary>
+        /// <param name="context">The database context</param>
+        /// <param name="tableName">Name of the table to check</param>
+        /// <param name="logger">Logger for diagnostic information</param>
+        /// <returns>True if the table exists and is accessible, false otherwise</returns>
         private static async Task<bool> CanAccessTable(ApplicationDbContext context, string tableName, ILogger logger)
         {
             try

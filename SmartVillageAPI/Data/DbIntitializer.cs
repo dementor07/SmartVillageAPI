@@ -1,234 +1,460 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SmartVillageAPI.Data;
-using System.Text;
+﻿using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.EntityFrameworkCore;
+using SmartVillageAPI.Models;
+using System.Security.Cryptography;
+using System.Text.Json;
 
-namespace SmartVillageAPI.Utilities
+namespace SmartVillageAPI.Data
 {
-    /// <summary>
-    /// Provides utilities to ensure the database is properly initialized.
-    /// This class helps with database schema validation and migration when the application starts.
-    /// </summary>
-    public static class DatabaseInitializer
+    public static class DbInitializer
     {
-        /// <summary>
-        /// Ensures that all required tables exist in the database.
-        /// This method is called during application startup to verify database schema integrity.
-        /// </summary>
-        /// <param name="context">The database context</param>
-        /// <param name="logger">Logger for diagnostic information</param>
-        /// <returns>A task representing the asynchronous operation</returns>
-        public static async Task EnsureTablesExist(ApplicationDbContext context, ILogger logger)
+        public static void Initialize(ApplicationDbContext context)
         {
-            // Log start of database check
-            logger.LogInformation("Beginning database schema verification");
+            SeedData(context);
+        }
 
-            // Check database connection
+        public static void SeedData(ApplicationDbContext context)
+        {
+            // Handle each seeding operation independently to prevent one failure from
+            // stopping the entire initialization process
+
+            // Seed Users
+            SeedUsers(context);
+
+            // Seed Service Categories
+            SeedServiceCategories(context);
+
+            // Seed Land Revenue Service Types
+            SeedLandRevenueServiceTypes(context);
+
+            // Seed Schemes - Try with proper error handling
             try
             {
-                await context.Database.CanConnectAsync();
-                logger.LogInformation("Database connection successful");
+                SeedSchemes(context);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to connect to database");
-                throw; // Rethrow as this is critical
+                Console.WriteLine($"Error seeding schemes: {ex.Message}");
+                // Continue execution despite error
             }
+        }
 
-            // Check if migrations have been applied
+        private static void SeedUsers(ApplicationDbContext context)
+        {
             try
             {
-                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                var pendingCount = pendingMigrations.Count();
-
-                if (pendingCount > 0)
+                // Only seed if no users exist
+                if (!context.Users.Any())
                 {
-                    logger.LogWarning($"There are {pendingCount} pending migrations that need to be applied");
-
-                    // List the pending migrations
-                    foreach (var migration in pendingMigrations)
+                    // Create admin user
+                    byte[] salt = new byte[16];
+                    using (var rng = RandomNumberGenerator.Create())
                     {
-                        logger.LogInformation($"Pending migration: {migration}");
+                        rng.GetBytes(salt);
                     }
 
-                    // Attempt to apply migrations
-                    logger.LogInformation("Attempting to apply pending migrations");
-                    await context.Database.MigrateAsync();
-                    logger.LogInformation("Migrations applied successfully");
-                }
-                else
-                {
-                    logger.LogInformation("No pending migrations found");
+                    string hashedPassword = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                        password: "Admin@123",
+                        salt: salt,
+                        prf: KeyDerivationPrf.HMACSHA256,
+                        iterationCount: 10000,
+                        numBytesRequested: 256 / 8));
+
+                    var admin = new User
+                    {
+                        FullName = "Admin User",
+                        EmailId = "admin@smartvillage.com",
+                        PasswordHash = hashedPassword,
+                        PasswordSalt = Convert.ToBase64String(salt),
+                        MobileNo = "9876543210",
+                        State = "Admin State",
+                        District = "Admin District",
+                        Village = "Admin Village",
+                        Address = "Smart Village Admin Office",
+                        RoleName = "Admin",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+
+                    context.Users.Add(admin);
+
+                    // Also add a sample resident user for testing
+                    byte[] residentSalt = new byte[16];
+                    using (var rng = RandomNumberGenerator.Create())
+                    {
+                        rng.GetBytes(residentSalt);
+                    }
+
+                    string residentHashedPassword = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                        password: "Resident@123",
+                        salt: residentSalt,
+                        prf: KeyDerivationPrf.HMACSHA256,
+                        iterationCount: 10000,
+                        numBytesRequested: 256 / 8));
+
+                    var resident = new User
+                    {
+                        FullName = "Sample Resident",
+                        EmailId = "resident@smartvillage.com",
+                        PasswordHash = residentHashedPassword,
+                        PasswordSalt = Convert.ToBase64String(residentSalt),
+                        MobileNo = "9876543211",
+                        State = "Demo State",
+                        District = "Demo District",
+                        Village = "Demo Village",
+                        Address = "123 Demo Street",
+                        RoleName = "Resident",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+
+                    context.Users.Add(resident);
+                    context.SaveChanges();
+
+                    // Add a sample announcement
+                    var announcement = new Announcement
+                    {
+                        UserId = admin.Id,
+                        Title = "Welcome to Smart Village Portal",
+                        Content = "This is a sample announcement to welcome all residents to our new Smart Village Portal. Stay connected and enjoy the digital services!",
+                        Category = "General",
+                        IsPublished = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    context.Announcements.Add(announcement);
+                    context.SaveChanges();
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error checking or applying migrations");
-                // Continue execution - we'll try to verify tables directly
+                // Log the error but don't crash
+                Console.WriteLine($"Error seeding users: {ex.Message}");
             }
+        }
 
-            // Check if Schemes table exists and is accessible
-            bool canAccessSchemes = await CanAccessTable(context, "Schemes", logger);
-
-            if (!canAccessSchemes)
+        private static void SeedServiceCategories(ApplicationDbContext context)
+        {
+            try
             {
-                logger.LogInformation("Table 'Schemes' exists but may not be properly registered with EF Core. Attempting to fix...");
+                // Check if any service categories exist
+                if (!context.ServiceCategories.Any())
+                {
+                    Console.WriteLine("Seeding service categories...");
+
+                    var categories = new List<ServiceCategory>
+                    {
+                        new ServiceCategory
+                        {
+                            Name = "Public Dispute Resolution",
+                            Description = "Mediation and resolution services for public disputes between residents.",
+                            Icon = "fa-gavel",
+                            ColorClass = "primary",
+                            IsActive = true,
+                            DisplayOrder = 1
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Disaster Management",
+                            Description = "Emergency response and management services for natural disasters and calamities.",
+                            Icon = "fa-house-damage",
+                            ColorClass = "danger",
+                            IsActive = true,
+                            DisplayOrder = 2
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Land Revenue Services",
+                            Description = "Services related to land records, ownership verification, tax payments, and other revenue department services.",
+                            Icon = "fa-file-certificate",
+                            ColorClass = "success",
+                            IsActive = true,
+                            DisplayOrder = 3
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Road Maintenance",
+                            Description = "Report road damages, potholes, and request repairs for village roads.",
+                            Icon = "fa-road",
+                            ColorClass = "secondary",
+                            IsActive = true,
+                            DisplayOrder = 4
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Water Supply Issues",
+                            Description = "Water supply disruptions, quality concerns, and new connection requests.",
+                            Icon = "fa-faucet",
+                            ColorClass = "info",
+                            IsActive = true,
+                            DisplayOrder = 5
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Electricity Problems",
+                            Description = "Power outages, electrical hazards, and new electricity connection requests.",
+                            Icon = "fa-bolt",
+                            ColorClass = "warning",
+                            IsActive = true,
+                            DisplayOrder = 6
+                        },
+                        new ServiceCategory
+                        {
+                            Name = "Waste Management",
+                            Description = "Garbage collection issues, waste disposal, and sanitation concerns.",
+                            Icon = "fa-trash",
+                            ColorClass = "success",
+                            IsActive = true,
+                            DisplayOrder = 7
+                        }
+                    };
+
+                    context.ServiceCategories.AddRange(categories);
+                    context.SaveChanges();
+                    Console.WriteLine($"Successfully seeded {categories.Count} service categories");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding service categories: {ex.Message}");
+            }
+        }
+
+        private static void SeedLandRevenueServiceTypes(ApplicationDbContext context)
+        {
+            try
+            {
+                // Check if any land revenue service types exist
+                if (!context.LandRevenueServiceTypes.Any())
+                {
+                    Console.WriteLine("Seeding land revenue service types...");
+
+                    var landServices = new List<LandRevenueServiceType>
+                    {
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Land Tax Payment",
+                            Description = "Pay your land tax online through the portal.",
+                            RequiredDocuments = "Land deed, Previous tax receipt, Identity proof",
+                            ProcessingTime = "Immediate",
+                            Fees = 0,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Possession Certificate",
+                            Description = "Certificate proving possession of land by the owner.",
+                            RequiredDocuments = "Land deed, ID proof, Application form, Recent passport size photo",
+                            ProcessingTime = "7-15 working days",
+                            Fees = 100,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Land Conversion Certificate",
+                            Description = "Certificate for converting land from one usage to another.",
+                            RequiredDocuments = "Land deed, NOC from concerned departments, Conversion fee receipt, Site plan",
+                            ProcessingTime = "30-45 working days",
+                            Fees = 2000,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Income Certificate",
+                            Description = "Certificate proving the annual income of a person or family.",
+                            RequiredDocuments = "Salary slip, Bank statements, Tax returns, Residence proof",
+                            ProcessingTime = "7-10 working days",
+                            Fees = 50,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Location Certificate",
+                            Description = "Certificate confirming the location/address of a property.",
+                            RequiredDocuments = "Land deed, Site plan, Identity proof, Application form",
+                            ProcessingTime = "15-20 working days",
+                            Fees = 150,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Ownership Certificate",
+                            Description = "Certificate confirming the ownership of a land or property.",
+                            RequiredDocuments = "Original deed, Tax receipt, Identity proof, Application form",
+                            ProcessingTime = "15-30 working days",
+                            Fees = 200,
+                            IsActive = true
+                        },
+                        new LandRevenueServiceType
+                        {
+                            ServiceName = "Mutation of Land Records",
+                            Description = "Transfer of land ownership from one person to another in revenue records.",
+                            RequiredDocuments = "Sale deed, Previous owner's documents, NOC, Tax receipts",
+                            ProcessingTime = "30-60 working days",
+                            Fees = 500,
+                            IsActive = true
+                        }
+                    };
+
+                    context.LandRevenueServiceTypes.AddRange(landServices);
+                    context.SaveChanges();
+                    Console.WriteLine($"Successfully seeded {landServices.Count} land revenue service types");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding land revenue service types: {ex.Message}");
+            }
+        }
+
+        private static void SeedSchemes(ApplicationDbContext context)
+        {
+            // Check if schemes exist using a safer method
+            if (!context.Schemes.Any())
+            {
+                Console.WriteLine("No schemes found. Seeding schemes data...");
+
+                // Create schemes objects directly
+                var schemes = new List<Scheme>
+                {
+                    // 1. Indira Gandhi National Widow Pension
+                    new Scheme
+                    {
+                        Name = "Indira Gandhi National Widow Pension",
+                        Description = "Financial assistance scheme for widows aged 40-79 years who are below the poverty line.",
+                        Category = "Pension",
+                        EligibilityCriteria = "{\"age\":\"40-79 years\",\"status\":\"Widow\",\"income\":\"Below Poverty Line\",\"documents\":[\"Death certificate of spouse\",\"BPL card\",\"Ration card\",\"Aadhaar card\"]}",
+                        Benefits = "Monthly pension of Rs. 500. Additional benefits include healthcare coverage under Ayushman Bharat.",
+                        RequiredDocuments = "Death certificate of spouse, BPL card, Ration card, Aadhaar card, Bank account details",
+                        Department = "Ministry of Rural Development",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Applicant Name\",\"type\":\"text\",\"required\":true},{\"key\":\"age\",\"label\":\"Age\",\"type\":\"number\",\"required\":true},{\"key\":\"address\",\"label\":\"Address\",\"type\":\"textarea\",\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    
+                    // 2. MEDISEP Scheme (Medical Insurance for State Employees and Pensioners)
+                    new Scheme
+                    {
+                        Name = "MEDISEP Scheme",
+                        Description = "Medical Insurance scheme designed for state government employees, pensioners and their dependents.",
+                        Category = "Healthcare",
+                        EligibilityCriteria = "{\"employment\":\"Current or retired state government employees\",\"dependents\":\"Spouse, children under 25, dependent parents\",\"enrollment\":\"Mandatory for all state employees\"}",
+                        Benefits = "Comprehensive cashless medical treatment up to Rs. 3 lakhs per family per annum. Coverage for over 1800 medical procedures.",
+                        RequiredDocuments = "Service ID card, Aadhaar card, Pension certificate (for retirees), Proof of relationship (for dependents)",
+                        Department = "Department of Health",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Applicant Name\",\"type\":\"text\",\"required\":true},{\"key\":\"employeeId\",\"label\":\"Employee ID\",\"type\":\"text\",\"required\":true},{\"key\":\"department\",\"label\":\"Department\",\"type\":\"text\",\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+
+                    // 3. Snehapoorvam Scheme (Educational Support)
+                    new Scheme
+                    {
+                        Name = "Snehapoorvam Scheme",
+                        Description = "Educational and financial support for children who have lost one or both parents, or whose parents are unable to support them due to chronic illness or imprisonment.",
+                        Category = "Education",
+                        EligibilityCriteria = "{\"orphanStatus\":\"Children who have lost one or both parents\",\"parentalStatus\":\"Children with parents suffering from chronic illness or imprisonment\",\"educationStatus\":\"Currently enrolled in educational institution\"}",
+                        Benefits = "Monthly financial assistance, Educational supplies, Counseling services, Career guidance",
+                        RequiredDocuments = "Death certificate of parent(s), School enrollment certificate, Guardian's ID proof, Income certificate",
+                        Department = "Department of Social Justice",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Student Name\",\"type\":\"text\",\"required\":true},{\"key\":\"schoolName\",\"label\":\"School Name\",\"type\":\"text\",\"required\":true},{\"key\":\"class\",\"label\":\"Class/Standard\",\"type\":\"text\",\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    
+                    // 4. PM Kisan Samman Nidhi
+                    new Scheme
+                    {
+                        Name = "PM Kisan Samman Nidhi",
+                        Description = "Direct income support scheme for farmers to help them meet farming and domestic needs.",
+                        Category = "Agriculture",
+                        EligibilityCriteria = "{\"landholding\":\"All landholding farmers\",\"exclusions\":\"Institutional landholders, high-income farmers, government employees\"}",
+                        Benefits = "Financial benefit of Rs. 6000 per year in three equal installments of Rs. 2000 each.",
+                        RequiredDocuments = "Land records, Aadhaar card, Bank account details, Caste certificate if applicable",
+                        Department = "Ministry of Agriculture & Farmers Welfare",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Farmer Name\",\"type\":\"text\",\"required\":true},{\"key\":\"landArea\",\"label\":\"Land Area (in acres)\",\"type\":\"number\",\"required\":true},{\"key\":\"bankAccount\",\"label\":\"Bank Account Number\",\"type\":\"text\",\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    
+                    // 5. Pradhan Mantri Awas Yojana
+                    new Scheme
+                    {
+                        Name = "Pradhan Mantri Awas Yojana",
+                        Description = "Housing subsidy scheme to provide affordable housing for all by 2025.",
+                        Category = "Housing",
+                        EligibilityCriteria = "{\"income\":\"EWS/LIG/MIG categories as defined\",\"homeOwnership\":\"Should not own a pucca house\"}",
+                        Benefits = "Interest subsidy on home loans, Direct financial assistance for house construction",
+                        RequiredDocuments = "Income proof, Aadhaar card, Bank statements, Property documents",
+                        Department = "Ministry of Housing and Urban Affairs",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Applicant Name\",\"type\":\"text\",\"required\":true},{\"key\":\"annualIncome\",\"label\":\"Annual Income\",\"type\":\"number\",\"required\":true},{\"key\":\"category\",\"label\":\"Category\",\"type\":\"select\",\"options\":[\"EWS\",\"LIG\",\"MIG-I\",\"MIG-II\"],\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    
+                    // 6. Ayushman Bharat Yojana
+                    new Scheme
+                    {
+                        Name = "Ayushman Bharat Yojana",
+                        Description = "Health insurance scheme providing coverage for secondary and tertiary care hospitalization.",
+                        Category = "Healthcare",
+                        EligibilityCriteria = "{\"socioeconomic\":\"Poor and vulnerable families as per SECC database\",\"coverage\":\"Up to 5 family members\"}",
+                        Benefits = "Health coverage up to Rs. 5 lakhs per family per year for secondary and tertiary care hospitalization",
+                        RequiredDocuments = "Aadhaar card, Ration card, Income certificate, SECC listing proof",
+                        Department = "Ministry of Health and Family Welfare",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Applicant Name\",\"type\":\"text\",\"required\":true},{\"key\":\"familyMembers\",\"label\":\"Number of Family Members\",\"type\":\"number\",\"required\":true},{\"key\":\"isInSECC\",\"label\":\"Listed in SECC Database?\",\"type\":\"select\",\"options\":[\"Yes\",\"No\"],\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    },
+                    
+                    // 7. National Social Assistance Program
+                    new Scheme
+                    {
+                        Name = "National Social Assistance Program",
+                        Description = "Social security scheme providing financial assistance to elderly, widows and persons with disabilities.",
+                        Category = "Pension",
+                        EligibilityCriteria = "{\"age\":\"60 years and above for elderly pension\",\"income\":\"Below poverty line\"}",
+                        Benefits = "Monthly pension ranging from Rs. 300 to Rs. 500 depending on age and category",
+                        RequiredDocuments = "Age proof, Identity proof, BPL card, Bank account details",
+                        Department = "Ministry of Rural Development",
+                        FormFields = "[{\"key\":\"applicantName\",\"label\":\"Applicant Name\",\"type\":\"text\",\"required\":true},{\"key\":\"age\",\"label\":\"Age\",\"type\":\"number\",\"required\":true},{\"key\":\"category\",\"label\":\"Category\",\"type\":\"select\",\"options\":[\"Elderly\",\"Widow\",\"Disability\"],\"required\":true}]",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    }
+                };
 
                 try
                 {
-                    // Create SchemeApplications table if it doesn't exist
-                    bool canAccessSchemeApplications = await CanAccessTable(context, "SchemeApplications", logger);
-                    if (!canAccessSchemeApplications)
-                    {
-                        // Script to create SchemeApplications table
-                        string createSchemeApplicationsTableSql = @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-BEGIN
-CREATE TABLE [SchemeApplications] (
-    [Id] int NOT NULL IDENTITY,
-    [SchemeId] int NOT NULL,
-    [UserId] int NOT NULL,
-    [ApplicationData] nvarchar(max) NOT NULL,
-    [Status] nvarchar(20) NOT NULL,
-    [ReferenceNumber] nvarchar(max) NULL,
-    [Notes] nvarchar(max) NULL,
-    [SupportingDocuments] nvarchar(max) NULL,
-    [CreatedAt] datetime2 NOT NULL,
-    [SubmittedAt] datetime2 NULL,
-    [ReviewedAt] datetime2 NULL,
-    [ReviewedByUserId] int NULL,
-    CONSTRAINT [PK_SchemeApplications] PRIMARY KEY ([Id])
-);
+                    // Add all schemes to context
+                    context.Schemes.AddRange(schemes);
 
--- Create foreign keys only if tables exist
-IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Schemes') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-BEGIN
-    ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Schemes_SchemeId] 
-    FOREIGN KEY ([SchemeId]) REFERENCES [Schemes] ([Id]) ON DELETE CASCADE;
-END
-
-IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Users') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-BEGIN
-    ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Users_ReviewedByUserId] 
-    FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]);
-    
-    ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Users_UserId] 
-    FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]);
-END
-END
-                        ";
-
-                        // Create indices
-                        string createIndicesSql = @"
--- Create indices if they don't exist
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_SchemeId')
-    CREATE INDEX [IX_SchemeApplications_SchemeId] ON [SchemeApplications] ([SchemeId]);
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_ReviewedByUserId')
-    CREATE INDEX [IX_SchemeApplications_ReviewedByUserId] ON [SchemeApplications] ([ReviewedByUserId]);
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_UserId')
-    CREATE INDEX [IX_SchemeApplications_UserId] ON [SchemeApplications] ([UserId]);
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Schemes_Category') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'Schemes')
-    CREATE INDEX [IX_Schemes_Category] ON [Schemes] ([Category]);
-                        ";
-
-                        try
-                        {
-                            // Execute the SQL commands with safety checks
-                            await context.Database.ExecuteSqlRawAsync(createSchemeApplicationsTableSql);
-                            logger.LogInformation("Created or updated SchemeApplications table");
-
-                            await context.Database.ExecuteSqlRawAsync(createIndicesSql);
-                            logger.LogInformation("Created or updated indices for scheme tables");
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log exception but continue execution
-                            logger.LogError(ex, "Error creating SchemeApplications table or indices");
-                        }
-                    }
-
-                    // Record the migration in __EFMigrationsHistory if it's not there
-                    string migrationId = "20250309000000_AddSchemeModels";
-                    string productVersion = "8.0.0";
-
-                    // Check if migration record exists using direct SQL
-                    var sql = $"IF EXISTS (SELECT 1 FROM [__EFMigrationsHistory] WHERE [MigrationId] = '{migrationId}') SELECT 1 ELSE SELECT 0";
-
-                    try
-                    {
-                        var command = context.Database.GetDbConnection().CreateCommand();
-                        command.CommandText = sql;
-
-                        // Ensure connection is open
-                        if (command.Connection.State != System.Data.ConnectionState.Open)
-                            await command.Connection.OpenAsync();
-
-                        var result = await command.ExecuteScalarAsync();
-                        bool migrationExists = Convert.ToInt32(result) == 1;
-
-                        if (!migrationExists)
-                        {
-                            // Add migration record
-                            await context.Database.ExecuteSqlAsync(
-                                $"INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('{migrationId}', '{productVersion}')");
-                            logger.LogInformation($"Added migration record {migrationId}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Error checking or adding migration record");
-                    }
+                    // Save changes
+                    context.SaveChanges();
+                    Console.WriteLine($"Successfully seeded {schemes.Count} schemes");
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error setting up database tables");
+                    Console.WriteLine($"Error adding schemes to database: {ex.Message}");
+
+                    // Try adding schemes one by one to identify problematic ones
+                    foreach (var scheme in schemes)
+                    {
+                        try
+                        {
+                            context.Schemes.Add(scheme);
+                            context.SaveChanges();
+                            Console.WriteLine($"Added scheme: {scheme.Name}");
+                        }
+                        catch (Exception innerEx)
+                        {
+                            Console.WriteLine($"Failed to add scheme {scheme.Name}: {innerEx.Message}");
+                        }
+                    }
                 }
             }
-
-            // Verify all critical tables exist
-            var criticalTables = new[] { "Users", "ServiceRequests", "Certificates", "Announcements", "Schemes", "SchemeApplications" };
-            foreach (var table in criticalTables)
+            else
             {
-                var exists = await CanAccessTable(context, table, logger);
-                logger.LogInformation($"Table '{table}' exists and is accessible: {exists}");
-            }
-
-            logger.LogInformation("Database schema verification completed");
-        }
-
-        /// <summary>
-        /// Checks if a specific table exists in the database and is accessible.
-        /// </summary>
-        /// <param name="context">The database context</param>
-        /// <param name="tableName">Name of the table to check</param>
-        /// <param name="logger">Logger for diagnostic information</param>
-        /// <returns>True if the table exists and is accessible, false otherwise</returns>
-        private static async Task<bool> CanAccessTable(ApplicationDbContext context, string tableName, ILogger logger)
-        {
-            try
-            {
-                // Try a direct SQL approach to check if table exists and is accessible
-                var sql = $"IF OBJECT_ID(N'[dbo].[{tableName}]', N'U') IS NOT NULL SELECT 1 ELSE SELECT 0";
-
-                var command = context.Database.GetDbConnection().CreateCommand();
-                command.CommandText = sql;
-
-                // Ensure connection is open
-                if (command.Connection.State != System.Data.ConnectionState.Open)
-                    await command.Connection.OpenAsync();
-
-                var result = await command.ExecuteScalarAsync();
-                bool exists = Convert.ToInt32(result) == 1;
-
-                logger.LogInformation($"Table {tableName} exists and is accessible: {exists}");
-                return exists;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, $"Error checking if table {tableName} is accessible");
-                return false;
+                Console.WriteLine("Schemes already exist in database, skipping seed");
             }
         }
     }
