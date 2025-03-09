@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import DisputeService from '../../services/dispute.service';
+import DisputeService from '../services/dispute.service';
 
 const CreateDisputeCase = () => {
     const navigate = useNavigate();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import DisasterService from '../../services/disaster.service';
+import DisasterService from '../services/disaster.service';
 
 const CreateDisasterCase = () => {
     const navigate = useNavigate();
