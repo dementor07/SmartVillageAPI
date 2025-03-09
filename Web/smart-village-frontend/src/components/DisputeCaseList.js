@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import DisputeService from '../../services/dispute.service';
-import AuthService from '../../services/auth.service';
 
 const DisputeCaseList = ({ adminView = false }) => {
     const [cases, setCases] = useState([]);
@@ -10,21 +9,9 @@ const DisputeCaseList = ({ adminView = false }) => {
     const [success, setSuccess] = useState('');
     const [filter, setFilter] = useState('');
     const location = useLocation();
-    const navigate = useNavigate();
-    const isAdmin = AuthService.isAdmin();
 
-    useEffect(() => {
-        fetchCases();
-    }, [filter]);
-
-    useEffect(() => {
-        // Check for success message from navigation
-        if (location.state?.message) {
-            setSuccess(location.state.message);
-        }
-    }, [location.state]);
-
-    const fetchCases = async () => {
+    // Use useCallback to memoize fetchCases function
+    const fetchCases = useCallback(async () => {
         try {
             setLoading(true);
             const response = adminView
@@ -38,7 +25,19 @@ const DisputeCaseList = ({ adminView = false }) => {
             setError('Failed to load dispute cases. Please try again later.');
             setLoading(false);
         }
-    };
+    }, [filter, adminView]);
+
+    // Now use fetchCases in the dependency array
+    useEffect(() => {
+        fetchCases();
+    }, [fetchCases]);
+
+    useEffect(() => {
+        // Check for success message from navigation
+        if (location.state?.message) {
+            setSuccess(location.state.message);
+        }
+    }, [location.state]);
 
     const handleFilterChange = (e) => {
         setFilter(e.target.value);

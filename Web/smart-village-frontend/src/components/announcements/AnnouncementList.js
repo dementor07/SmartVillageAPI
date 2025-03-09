@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AnnouncementService from '../../services/announcement.service';
 
@@ -9,11 +9,8 @@ const AnnouncementList = () => {
     const [error, setError] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
 
-    useEffect(() => {
-        fetchAnnouncements();
-    }, [selectedCategory]);
-
-    const fetchAnnouncements = async () => {
+    // Use useCallback to memoize the fetchAnnouncements function
+    const fetchAnnouncements = useCallback(async () => {
         try {
             setLoading(true);
             const response = await AnnouncementService.getAnnouncements();
@@ -38,7 +35,12 @@ const AnnouncementList = () => {
             setError('Failed to load announcements. Please try again.');
             setLoading(false);
         }
-    };
+    }, [selectedCategory]); // Adding selectedCategory as a dependency
+
+    // Now use the memoized function in the dependency array
+    useEffect(() => {
+        fetchAnnouncements();
+    }, [fetchAnnouncements]);
 
     const handleCategoryChange = (e) => {
         setSelectedCategory(e.target.value);

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import RequestService from '../../services/request.service';
-import AuthService from '../../services/auth.service';
 
 const RequestList = ({ adminView = false }) => {
     const [requests, setRequests] = useState([]);
@@ -9,20 +8,9 @@ const RequestList = ({ adminView = false }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const location = useLocation();
-    const isAdmin = AuthService.isAdmin();
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
-
-    useEffect(() => {
-        // Check for success message from navigation
-        if (location.state?.message) {
-            setSuccess(location.state.message);
-        }
-    }, [location.state]);
-
-    const fetchRequests = async () => {
+    // Use useCallback to memoize the fetchRequests function to prevent unnecessary re-creation
+    const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
             const response = adminView
@@ -36,7 +24,19 @@ const RequestList = ({ adminView = false }) => {
             setError('Failed to load service requests. Please try again later.');
             setLoading(false);
         }
-    };
+    }, [adminView]); // Adding adminView as a dependency
+
+    // Use fetchRequests in the dependency array
+    useEffect(() => {
+        fetchRequests();
+    }, [fetchRequests]);
+
+    useEffect(() => {
+        // Check for success message from navigation
+        if (location.state?.message) {
+            setSuccess(location.state.message);
+        }
+    }, [location.state]);
 
     const getStatusBadgeClass = (status) => {
         switch (status) {

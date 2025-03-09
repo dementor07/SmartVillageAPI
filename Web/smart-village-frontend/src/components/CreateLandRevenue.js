@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -19,26 +19,6 @@ const CreateLandRevenue = () => {
             setSelectedService(location.state.selectedService);
         }
     }, [location.state]);
-
-    // Fetch available services
-    useEffect(() => {
-        const fetchServices = async () => {
-            try {
-                const response = await LandRevenueService.getServiceTypes();
-                setServices(response.data);
-
-                // If there's no pre-selected service and we have services, select the first one
-                if (!selectedService && response.data.length > 0 && !location.state?.selectedService) {
-                    setSelectedService(response.data[0]);
-                }
-            } catch (error) {
-                console.error('Error fetching land revenue services:', error);
-                setError('Failed to load service types. Please try again.');
-            }
-        };
-
-        fetchServices();
-    }, [selectedService, location.state]);
 
     const formik = useFormik({
         initialValues: {
@@ -81,12 +61,33 @@ const CreateLandRevenue = () => {
         }
     });
 
+    // Fetch available services with useCallback to memoize
+    const fetchServices = useCallback(async () => {
+        try {
+            const response = await LandRevenueService.getServiceTypes();
+            setServices(response.data);
+
+            // If there's no pre-selected service and we have services, select the first one
+            if (!selectedService && response.data.length > 0 && !location.state?.selectedService) {
+                setSelectedService(response.data[0]);
+            }
+        } catch (error) {
+            console.error('Error fetching land revenue services:', error);
+            setError('Failed to load service types. Please try again.');
+        }
+    }, [selectedService, location.state?.selectedService]);
+
+    // Fetch services on component mount
+    useEffect(() => {
+        fetchServices();
+    }, [fetchServices]);
+
     // Update form service type when selected service changes
     useEffect(() => {
         if (selectedService) {
             formik.setFieldValue('serviceType', selectedService.serviceName || '');
         }
-    }, [selectedService]);
+    }, [selectedService, formik]);
 
     const handleServiceChange = (e) => {
         const serviceId = e.target.value;

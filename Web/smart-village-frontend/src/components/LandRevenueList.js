@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import LandRevenueService from '../../services/landrevenue.service';
-import AuthService from '../../services/auth.service';
 
 const LandRevenueList = ({ adminView = false }) => {
     const [applications, setApplications] = useState([]);
@@ -10,21 +9,9 @@ const LandRevenueList = ({ adminView = false }) => {
     const [success, setSuccess] = useState('');
     const [filter, setFilter] = useState('');
     const location = useLocation();
-    const navigate = useNavigate();
-    const isAdmin = AuthService.isAdmin();
 
-    useEffect(() => {
-        fetchApplications();
-    }, [filter]);
-
-    useEffect(() => {
-        // Check for success message from navigation
-        if (location.state?.message) {
-            setSuccess(location.state.message);
-        }
-    }, [location.state]);
-
-    const fetchApplications = async () => {
+    // Use useCallback to memoize fetchApplications function
+    const fetchApplications = useCallback(async () => {
         try {
             setLoading(true);
             const response = adminView
@@ -38,7 +25,19 @@ const LandRevenueList = ({ adminView = false }) => {
             setError('Failed to load applications. Please try again later.');
             setLoading(false);
         }
-    };
+    }, [filter, adminView]);
+
+    // Now use fetchApplications in the dependency array
+    useEffect(() => {
+        fetchApplications();
+    }, [fetchApplications]);
+
+    useEffect(() => {
+        // Check for success message from navigation
+        if (location.state?.message) {
+            setSuccess(location.state.message);
+        }
+    }, [location.state]);
 
     const handleFilterChange = (e) => {
         setFilter(e.target.value);
