@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthService from '../../services/auth.service';
 
 const Header = () => {
-    const [showDropdown, setShowDropdown] = useState(false);
+    const [showServicesDropdown, setShowServicesDropdown] = useState(false);
     const [showSchemeDropdown, setShowSchemeDropdown] = useState(false);
+    const [showAdminDropdown, setShowAdminDropdown] = useState(false);
     const navigate = useNavigate();
 
     // Check if user is authenticated
@@ -62,9 +63,39 @@ const Header = () => {
                             {/* Links only visible to authenticated users */}
                             {isAuthenticated ? (
                                 <>
-                                    <li className="nav-item">
-                                        <Link className="nav-link text-white" to="/service-requests">Services</Link>
+                                    {/* Village Services Dropdown */}
+                                    <li className="nav-item dropdown">
+                                        <button
+                                            className="nav-link text-white dropdown-toggle border-0 bg-transparent"
+                                            type="button"
+                                            onClick={() => setShowServicesDropdown(!showServicesDropdown)}
+                                            aria-expanded={showServicesDropdown}
+                                        >
+                                            Village Services
+                                        </button>
+                                        <ul className={`dropdown-menu${showServicesDropdown ? ' show' : ''}`}>
+                                            <li><h6 className="dropdown-header">Service Requests</h6></li>
+                                            <li><Link className="dropdown-item" to="/service-requests">My Requests</Link></li>
+                                            <li><Link className="dropdown-item" to="/service-requests/create">New Request</Link></li>
+                                            <li><hr className="dropdown-divider" /></li>
+
+                                            <li><h6 className="dropdown-header">Land Revenue</h6></li>
+                                            <li><Link className="dropdown-item" to="/land-revenue/services">Available Services</Link></li>
+                                            <li><Link className="dropdown-item" to="/land-revenue/my-applications">My Applications</Link></li>
+                                            <li><Link className="dropdown-item" to="/land-revenue/create">New Application</Link></li>
+                                            <li><hr className="dropdown-divider" /></li>
+
+                                            <li><h6 className="dropdown-header">Dispute Resolution</h6></li>
+                                            <li><Link className="dropdown-item" to="/dispute-resolution/my-cases">My Cases</Link></li>
+                                            <li><Link className="dropdown-item" to="/dispute-resolution/create">File New Case</Link></li>
+                                            <li><hr className="dropdown-divider" /></li>
+
+                                            <li><h6 className="dropdown-header">Disaster Management</h6></li>
+                                            <li><Link className="dropdown-item" to="/disaster-management/my-cases">My Reports</Link></li>
+                                            <li><Link className="dropdown-item" to="/disaster-management/create">Report Disaster</Link></li>
+                                        </ul>
                                     </li>
+
                                     <li className="nav-item">
                                         <Link className="nav-link text-white" to="/certificates">Certificates</Link>
                                     </li>
@@ -75,18 +106,23 @@ const Header = () => {
                                             <button
                                                 className="nav-link text-white dropdown-toggle border-0 bg-transparent"
                                                 type="button"
-                                                onClick={() => setShowDropdown(!showDropdown)}
-                                                aria-expanded={showDropdown}
+                                                onClick={() => setShowAdminDropdown(!showAdminDropdown)}
+                                                aria-expanded={showAdminDropdown}
                                             >
                                                 Admin
                                             </button>
-                                            <ul className={`dropdown-menu${showDropdown ? ' show' : ''}`}>
+                                            <ul className={`dropdown-menu${showAdminDropdown ? ' show' : ''}`}>
                                                 <li><Link className="dropdown-item" to="/admin/announcements">Manage Announcements</Link></li>
                                                 <li><Link className="dropdown-item" to="/admin/requests">Manage Service Requests</Link></li>
                                                 <li><Link className="dropdown-item" to="/admin/certificates">Manage Certificates</Link></li>
                                                 <li><hr className="dropdown-divider" /></li>
                                                 <li><Link className="dropdown-item" to="/admin/schemes">Manage Schemes</Link></li>
                                                 <li><Link className="dropdown-item" to="/admin/schemes/applications">Scheme Applications</Link></li>
+                                                <li><hr className="dropdown-divider" /></li>
+                                                <li><h6 className="dropdown-header">Village Services</h6></li>
+                                                <li><Link className="dropdown-item" to="/admin/land-revenue">Land Revenue Applications</Link></li>
+                                                <li><Link className="dropdown-item" to="/admin/dispute-resolution">Dispute Resolution Cases</Link></li>
+                                                <li><Link className="dropdown-item" to="/admin/disaster-management">Disaster Reports</Link></li>
                                             </ul>
                                         </li>
                                     )}
