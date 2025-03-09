@@ -162,7 +162,7 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Schemes_Category') AND
                         command.CommandText = sql;
 
                         // Ensure connection is open
-                        if (command.Connection.State != System.Data.ConnectionState.Open)
+                        if (command.Connection != null && command.Connection.State != System.Data.ConnectionState.Open)
                             await command.Connection.OpenAsync();
 
                         var result = await command.ExecuteScalarAsync();
@@ -216,7 +216,7 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Schemes_Category') AND
                 command.CommandText = sql;
 
                 // Ensure connection is open
-                if (command.Connection.State != System.Data.ConnectionState.Open)
+                if (command.Connection != null && command.Connection.State != System.Data.ConnectionState.Open)
                     await command.Connection.OpenAsync();
 
                 var result = await command.ExecuteScalarAsync();

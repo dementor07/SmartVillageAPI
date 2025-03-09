@@ -47,8 +47,8 @@ namespace SmartVillageAPI.Controllers
                         createdAt = c.CreatedAt,
                         reviewedAt = c.ReviewedAt,
                         referenceNumber = c.ReferenceNumber,
-                        userName = c.User.FullName,
-                        userContact = c.User.MobileNo
+                        userName = c.User != null ? c.User.FullName : "Unknown",
+                        userContact = c.User != null ? c.User.MobileNo : "Unknown"
                     })
                     .ToListAsync();
 
@@ -114,6 +114,10 @@ namespace SmartVillageAPI.Controllers
 
                 if (certificate == null)
                     return NotFound(new { message = "Certificate not found" });
+
+                // Fix: Null check for User property before accessing it
+                if (certificate.User == null)
+                    return BadRequest(new { message = "Certificate data is corrupted" });
 
                 // Only allow admin or the certificate owner to view details
                 if (certificate.UserId != uid && !User.IsInRole("Admin"))

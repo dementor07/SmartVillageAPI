@@ -90,7 +90,6 @@ export const useAppNavigation = () => {
 // Wrapper component to handle authentication and routing
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Check authentication status on mount and when auth changes
@@ -98,7 +97,6 @@ const AppContent = () => {
     const checkAuth = () => {
       const authenticated = AuthService.isTokenValid();
       setIsAuthenticated(authenticated);
-      setIsAdmin(authenticated && AuthService.isAdmin());
       setCheckingAuth(false);
     };
 
