@@ -4,26 +4,84 @@ using Microsoft.EntityFrameworkCore;
 using SmartVillageAPI.Data;
 using SmartVillageAPI.Models;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace SmartVillageAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CertificateController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CertificateController> _logger;
+        private readonly IWebHostEnvironment _environment;
 
-        public CertificateController(ApplicationDbContext context, ILogger<CertificateController> logger)
+        public CertificateController(
+            ApplicationDbContext context,
+            ILogger<CertificateController> logger,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _logger = logger;
+            _environment = environment;
+        }
+
+        // Helper method to get current user ID
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                throw new UnauthorizedAccessException("Invalid user token");
+            }
+            return userId;
+        }
+
+        // Generate unique reference number
+        private string GenerateReferenceNumber()
+        {
+            string prefix = "CERT";
+            string dateComponent = DateTime.UtcNow.ToString("yyyyMMdd");
+            string randomComponent = new Random().Next(1000, 9999).ToString();
+            return $"{prefix}-{dateComponent}-{randomComponent}";
+        }
+
+        // Validate certificate application based on type
+        private void ValidateCertificateApplication(Certificate certificate)
+        {
+            switch (certificate.CertificateType)
+            {
+                case CertificateType.IncomeCertificate:
+                    if (string.IsNullOrWhiteSpace(certificate.AnnualIncome))
+                        throw new ValidationException("Annual Income is required for Income Certificate");
+                    break;
+
+                case CertificateType.CasteCertificate:
+                    if (string.IsNullOrWhiteSpace(certificate.Caste))
+                        throw new ValidationException("Caste is required for Caste Certificate");
+                    break;
+
+                case CertificateType.FamilyMembershipCertificate:
+                    if (string.IsNullOrWhiteSpace(certificate.FamilyMemberName) ||
+                        string.IsNullOrWhiteSpace(certificate.Relationship))
+                        throw new ValidationException("Family Member Name and Relationship are required for Family Membership Certificate");
+                    break;
+            }
+
+            // Validate document upload for all certificate types
+            if (string.IsNullOrWhiteSpace(certificate.DocumentContent))
+                throw new ValidationException("Supporting document is required");
         }
 
         // Get all certificates (admin only)
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllCertificates([FromQuery] string? status)
+        public async Task<IActionResult> GetAllCertificates(
+            [FromQuery] CertificateType? type = null,
+            [FromQuery] CertificateStatus? status = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
@@ -31,82 +89,108 @@ namespace SmartVillageAPI.Controllers
                     .Include(c => c.User)
                     .AsQueryable();
 
-                if (!string.IsNullOrEmpty(status))
-                {
-                    query = query.Where(c => c.Status == status);
-                }
+                if (type.HasValue)
+                    query = query.Where(c => c.CertificateType == type.Value);
+
+                if (status.HasValue)
+                    query = query.Where(c => c.Status == status.Value);
+
+                var totalCount = await query.CountAsync();
 
                 var certificates = await query
                     .OrderByDescending(c => c.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(c => new
                     {
                         id = c.Id,
-                        applicantName = c.ApplicantName,
+                        referenceNumber = c.ReferenceNumber,
                         certificateType = c.CertificateType,
+                        applicantName = c.ApplicantName,
                         status = c.Status,
                         createdAt = c.CreatedAt,
-                        reviewedAt = c.ReviewedAt,
-                        referenceNumber = c.ReferenceNumber,
-                        userName = c.User != null ? c.User.FullName : "Unknown",
-                        userContact = c.User != null ? c.User.MobileNo : "Unknown"
+                        userName = c.User != null ? c.User.FullName : "Unknown"
                     })
                     .ToListAsync();
 
-                return Ok(certificates);
+                return Ok(new
+                {
+                    data = certificates,
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while retrieving certificates");
-                return StatusCode(500, new { message = "An error occurred while retrieving certificates" });
+                _logger.LogError(ex, "Error retrieving certificates");
+                return StatusCode(500, new { message = "Error retrieving certificates" });
             }
         }
 
-        // Get my certificates (authorized users)
+        // Get user's certificates
         [HttpGet("my-certificates")]
-        [Authorize]
-        public async Task<IActionResult> GetMyCertificates()
+        public async Task<IActionResult> GetMyCertificates(
+            [FromQuery] CertificateType? type = null,
+            [FromQuery] CertificateStatus? status = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
-                    return Unauthorized(new { message = "Invalid or expired token" });
+                var userId = GetCurrentUserId();
 
-                var certificates = await _context.Certificates
-                    .Where(c => c.UserId == id)
+                var query = _context.Certificates
+                    .Where(c => c.UserId == userId);
+
+                if (type.HasValue)
+                    query = query.Where(c => c.CertificateType == type.Value);
+
+                if (status.HasValue)
+                    query = query.Where(c => c.Status == status.Value);
+
+                var totalCount = await query.CountAsync();
+
+                var certificates = await query
                     .OrderByDescending(c => c.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(c => new
                     {
                         id = c.Id,
-                        applicantName = c.ApplicantName,
+                        referenceNumber = c.ReferenceNumber,
                         certificateType = c.CertificateType,
                         status = c.Status,
                         createdAt = c.CreatedAt,
-                        reviewedAt = c.ReviewedAt,
-                        referenceNumber = c.ReferenceNumber,
-                        rejectionReason = c.RejectionReason
+                        lastUpdatedAt = c.LastUpdatedAt
                     })
                     .ToListAsync();
 
-                return Ok(certificates);
+                return Ok(new
+                {
+                    data = certificates,
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while retrieving user certificates");
-                return StatusCode(500, new { message = "An error occurred while retrieving your certificates" });
+                _logger.LogError(ex, "Error retrieving user certificates");
+                return StatusCode(500, new { message = "Error retrieving certificates" });
             }
         }
 
-        // Get certificate by ID
+        // Get certificate details
         [HttpGet("{id}")]
-        [Authorize]
-        public async Task<IActionResult> GetCertificateById(int id)
+        public async Task<IActionResult> GetCertificateDetails(int id)
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int uid))
-                    return Unauthorized(new { message = "Invalid or expired token" });
+                var userId = GetCurrentUserId();
+                var isAdmin = User.IsInRole("Admin");
 
                 var certificate = await _context.Certificates
                     .Include(c => c.User)
@@ -115,97 +199,96 @@ namespace SmartVillageAPI.Controllers
                 if (certificate == null)
                     return NotFound(new { message = "Certificate not found" });
 
-                // Fix: Null check for User property before accessing it
-                if (certificate.User == null)
-                    return BadRequest(new { message = "Certificate data is corrupted" });
-
-                // Only allow admin or the certificate owner to view details
-                if (certificate.UserId != uid && !User.IsInRole("Admin"))
+                // Check authorization
+                if (!isAdmin && certificate.UserId != userId)
                     return Forbid();
+
+                // Remove sensitive document content for non-admin users
+                if (!isAdmin)
+                {
+                    certificate.DocumentContent = null;
+                }
 
                 return Ok(certificate);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while retrieving certificate details for ID: {CertificateId}", id);
-                return StatusCode(500, new { message = "An error occurred while retrieving the certificate" });
+                _logger.LogError(ex, $"Error retrieving certificate {id}");
+                return StatusCode(500, new { message = "Error retrieving certificate details" });
             }
         }
 
         // Create certificate application
         [HttpPost]
-        [Authorize]
-        public async Task<IActionResult> CreateCertificate([FromBody] CreateCertificateModel model)
+        public async Task<IActionResult> CreateCertificate([FromBody] Certificate model)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int id))
-                    return Unauthorized(new { message = "Invalid or expired token" });
+                var userId = GetCurrentUserId();
 
-                // Basic input validation for certificate type
-                if (string.IsNullOrWhiteSpace(model.CertificateType))
-                    return BadRequest(new { message = "Certificate type is required" });
+                // Validate certificate type-specific requirements
+                ValidateCertificateApplication(model);
 
-                if (string.IsNullOrWhiteSpace(model.ApplicantName))
-                    return BadRequest(new { message = "Applicant name is required" });
-
-                // Create new certificate entity from model
+                // Prepare certificate object
                 var certificate = new Certificate
                 {
-                    UserId = id,
+                    UserId = userId,
                     CertificateType = model.CertificateType,
                     ApplicantName = model.ApplicantName,
                     Gender = model.Gender,
                     Age = model.Age,
                     Address = model.Address,
                     FatherName = model.FatherName,
-                    Religion = model.Religion,
+
+                    // Copy type-specific fields
+                    AnnualIncome = model.AnnualIncome,
                     Caste = model.Caste,
-                    PostOffice = model.PostOffice,
-                    PinCode = model.PinCode,
-                    State = model.State,
-                    District = model.District,
-                    Village = model.Village,
-                    Taluk = model.Taluk,
-                    Location = model.Location,
                     FamilyMemberName = model.FamilyMemberName,
                     Relationship = model.Relationship,
-                    AnnualIncome = model.AnnualIncome,
-                    CompanyName = model.CompanyName,
-                    CompanySector = model.CompanySector,
-                    IdentificationMark1 = model.IdentificationMark1,
-                    IdentificationMark2 = model.IdentificationMark2,
-                    IdentificationMark3 = model.IdentificationMark3,
-                    Status = "Pending",
-                    CreatedAt = DateTime.UtcNow,
+
+                    // Document details
+                    DocumentFileName = model.DocumentFileName,
+                    DocumentFileSize = model.DocumentFileSize,
+                    DocumentFileType = model.DocumentFileType,
+                    DocumentContent = model.DocumentContent,
+
+                    // Set initial status
+                    Status = CertificateStatus.Pending,
                     ReferenceNumber = GenerateReferenceNumber()
                 };
 
                 _context.Certificates.Add(certificate);
                 await _context.SaveChangesAsync();
 
+                _logger.LogInformation($"Certificate application created: {certificate.Id}");
+
                 return Ok(new
                 {
                     id = certificate.Id,
                     referenceNumber = certificate.ReferenceNumber,
-                    message = "Certificate application submitted successfully!"
+                    message = "Certificate application submitted successfully"
                 });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while creating certificate application");
-                return StatusCode(500, new { message = "An error occurred while creating the certificate application" });
+                _logger.LogError(ex, "Error creating certificate application");
+                return StatusCode(500, new { message = "Error submitting certificate application" });
             }
         }
 
         // Update certificate status (admin only)
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateCertificateStatus(int id, [FromBody] UpdateCertificateStatusModel model)
+        public async Task<IActionResult> UpdateCertificateStatus(
+            int id,
+            [FromBody] Certificate statusUpdate)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -213,82 +296,77 @@ namespace SmartVillageAPI.Controllers
             try
             {
                 var certificate = await _context.Certificates.FindAsync(id);
+
                 if (certificate == null)
                     return NotFound(new { message = "Certificate not found" });
 
-                // Validate state transition
-                if (certificate.Status != "Pending")
-                    return BadRequest(new { message = "Only certificates with 'Pending' status can be updated" });
+                // Validate status transition
+                if (certificate.Status == CertificateStatus.Approved ||
+                    certificate.Status == CertificateStatus.Rejected)
+                {
+                    return BadRequest(new { message = "Cannot modify a finalized certificate" });
+                }
 
-                // Validate the new status
-                if (model.Status != "Approved" && model.Status != "Rejected")
-                    return BadRequest(new { message = "Status must be either 'Approved' or 'Rejected'" });
-
-                certificate.Status = model.Status;
+                // Update status and related fields
+                certificate.Status = statusUpdate.Status;
+                certificate.RejectionReason = statusUpdate.RejectionReason;
+                certificate.ApprovalComments = statusUpdate.ApprovalComments;
                 certificate.ReviewedAt = DateTime.UtcNow;
-
-                if (model.Status == "Rejected")
-                {
-                    if (string.IsNullOrWhiteSpace(model.RejectionReason))
-                        return BadRequest(new { message = "Rejection reason is required" });
-
-                    certificate.RejectionReason = model.RejectionReason;
-                }
-                else if (model.Status == "Approved")
-                {
-                    certificate.ApprovalComments = model.ApprovalComments;
-                }
+                certificate.LastUpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
-                return Ok(new { message = "Certificate status updated successfully!" });
+
+                _logger.LogInformation($"Certificate {id} status updated to {certificate.Status}");
+
+                return Ok(new
+                {
+                    message = "Certificate status updated successfully",
+                    status = certificate.Status
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while updating certificate status for ID: {CertificateId}", id);
-                return StatusCode(500, new { message = "An error occurred while updating the certificate status" });
+                _logger.LogError(ex, $"Error updating certificate {id} status");
+                return StatusCode(500, new { message = "Error updating certificate status" });
             }
         }
 
-        private string GenerateReferenceNumber()
+        // Get available certificate types
+        [HttpGet("types")]
+        public IActionResult GetCertificateTypes()
         {
-            // Format: CERT-{Year}{Month}{Day}-{Random 4 digits}
-            string dateComponent = DateTime.UtcNow.ToString("yyyyMMdd");
-            string randomComponent = new Random().Next(1000, 9999).ToString();
-            return $"CERT-{dateComponent}-{randomComponent}";
+            return Ok(Enum.GetValues(typeof(CertificateType))
+                .Cast<CertificateType>()
+                .Select(t => new
+                {
+                    value = (int)t,
+                    name = t.ToString(),
+                    displayName = GetCertificateTypeDisplayName(t)
+                }));
+        }
+
+        // Helper method to get user-friendly certificate type names
+        private string GetCertificateTypeDisplayName(CertificateType type)
+        {
+            return type switch
+            {
+                CertificateType.NonCreamyLayerCertificate => "Non-Creamy Layer Certificate",
+                CertificateType.FamilyMembershipCertificate => "Family Membership Certificate",
+                CertificateType.RelationshipCertificate => "Relationship Certificate",
+                CertificateType.DomicileCertificate => "Domicile Certificate",
+                CertificateType.CommunityCertificate => "Community Certificate",
+                CertificateType.NativityCertificate => "Nativity Certificate",
+                CertificateType.IncomeCertificate => "Income Certificate",
+                CertificateType.CasteCertificate => "Caste Certificate",
+                CertificateType.IdentificationCertificate => "Identification Certificate",
+                _ => type.ToString()
+            };
         }
     }
 
-    public class UpdateCertificateStatusModel
+    // Custom exception for validation errors
+    public class ValidationException : Exception
     {
-        public required string Status { get; set; } // Approved or Rejected
-        public string? RejectionReason { get; set; }
-        public string? ApprovalComments { get; set; }
-    }
-
-    public class CreateCertificateModel
-    {
-        public required string CertificateType { get; set; }
-        public required string ApplicantName { get; set; }
-        public string? Gender { get; set; }
-        public int? Age { get; set; }
-        public string? Address { get; set; }
-        public string? FatherName { get; set; }
-        public string? Religion { get; set; }
-        public string? Caste { get; set; }
-        public string? PostOffice { get; set; }
-        public string? PinCode { get; set; }
-        public string? State { get; set; }
-        public string? District { get; set; }
-        public string? Village { get; set; }
-        public string? Taluk { get; set; }
-        public string? Location { get; set; }
-        public string? FamilyMemberName { get; set; }
-        public string? Relationship { get; set; }
-        public string? AnnualIncome { get; set; }
-        public string? CompanyName { get; set; }
-        public string? CompanySector { get; set; }
-        public string? IdentificationMark1 { get; set; }
-        public string? IdentificationMark2 { get; set; }
-        public string? IdentificationMark3 { get; set; }
+        public ValidationException(string message) : base(message) { }
     }
 }
