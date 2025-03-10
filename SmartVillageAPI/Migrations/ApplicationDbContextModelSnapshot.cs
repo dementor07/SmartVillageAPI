@@ -22,81 +22,6 @@ namespace SmartVillageAPI.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            // Define User entity first (parent)
-            modelBuilder.Entity("SmartVillageAPI.Models.User", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<string>("Address")
-                    .IsRequired()
-                    .HasMaxLength(200)
-                    .HasColumnType("nvarchar(200)");
-
-                b.Property<DateTime>("CreatedAt")
-                    .HasColumnType("datetime2");
-
-                b.Property<string>("District")
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .HasColumnType("nvarchar(50)");
-
-                b.Property<string>("EmailId")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .HasColumnType("nvarchar(100)");
-
-                b.Property<string>("FullName")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .HasColumnType("nvarchar(100)");
-
-                b.Property<bool>("IsActive")
-                    .HasColumnType("bit");
-
-                b.Property<DateTime?>("LastLoginAt")
-                    .HasColumnType("datetime2");
-
-                b.Property<string>("MobileNo")
-                    .IsRequired()
-                    .HasMaxLength(15)
-                    .HasColumnType("nvarchar(15)");
-
-                b.Property<string>("PasswordHash")
-                    .IsRequired()
-                    .HasColumnType("nvarchar(max)");
-
-                b.Property<string>("PasswordSalt")
-                    .IsRequired()
-                    .HasColumnType("nvarchar(max)");
-
-                b.Property<string>("RoleName")
-                    .IsRequired()
-                    .HasMaxLength(20)
-                    .HasColumnType("nvarchar(20)");
-
-                b.Property<string>("State")
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .HasColumnType("nvarchar(50)");
-
-                b.Property<string>("Village")
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .HasColumnType("nvarchar(50)");
-
-                b.HasKey("Id");
-
-                b.HasIndex("EmailId")
-                    .IsUnique();
-
-                b.ToTable("Users");
-            });
-
-            // Announcements entity with relationship to User
             modelBuilder.Entity("SmartVillageAPI.Models.Announcement", b =>
             {
                 b.Property<int>("Id")
@@ -139,56 +64,6 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("Announcements");
             });
 
-            // ServiceRequest entity with relationship to User
-            modelBuilder.Entity("SmartVillageAPI.Models.ServiceRequest", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<string>("Category")
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .HasColumnType("nvarchar(50)");
-
-                b.Property<DateTime>("CreatedAt")
-                    .HasColumnType("datetime2");
-
-                b.Property<string>("Description")
-                    .IsRequired()
-                    .HasMaxLength(500)
-                    .HasColumnType("nvarchar(500)");
-
-                b.Property<string>("Resolution")
-                    .HasMaxLength(500)
-                    .HasColumnType("nvarchar(500)");
-
-                b.Property<DateTime?>("ResolvedAt")
-                    .HasColumnType("datetime2");
-
-                b.Property<string>("Status")
-                    .IsRequired()
-                    .HasMaxLength(20)
-                    .HasColumnType("nvarchar(20)");
-
-                b.Property<string>("Title")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .HasColumnType("nvarchar(100)");
-
-                b.Property<int>("UserId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id");
-
-                b.HasIndex("UserId");
-
-                b.ToTable("ServiceRequests");
-            });
-
-            // Certificate entity with relationship to User
             modelBuilder.Entity("SmartVillageAPI.Models.Certificate", b =>
             {
                 b.Property<int>("Id")
@@ -329,7 +204,634 @@ namespace SmartVillageAPI.Migrations
                 b.ToTable("Certificates");
             });
 
-            // Define relationships
+            modelBuilder.Entity("SmartVillageAPI.Models.DisasterManagement", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("AffectedCount")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("AssignedTeam")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<string>("DisasterType")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("ImageData")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("ImpactedArea")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("Location")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<DateTime>("OccurrenceDate")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("ReferenceNumber")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<DateTime?>("ResolvedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Response")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<int?>("ReviewedByUserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("Severity")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
+
+                b.HasKey("Id");
+
+                b.HasIndex("ReviewedByUserId");
+
+                b.HasIndex("UserId");
+
+                b.ToTable("DisasterManagements");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.DisputeResolution", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<DateTime>("DisputeDate")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("DisputeType")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("DocumentData")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<DateTime?>("HearingDate")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Location")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("MediaterAssigned")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("PartiesInvolved")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("PriorResolutionAttempts")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<string>("ReferenceNumber")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<DateTime?>("ResolvedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Resolution")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<int?>("ReviewedByUserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
+
+                b.HasKey("Id");
+
+                b.HasIndex("ReviewedByUserId");
+
+                b.HasIndex("UserId");
+
+                b.ToTable("DisputeResolutions");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.LandRevenue", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("AdditionalDetails")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<string>("ApprovalComments")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("District")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("DocumentData")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<decimal?>("FeesAmount")
+                    .HasColumnType("decimal(18,2)");
+
+                b.Property<string>("LandArea")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("LandOwnerName")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<string>("LandType")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<DateTime?>("PaymentDate")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("PaymentStatus")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("PattaNumber")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("ReferenceNumber")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("RejectionReason")
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<DateTime?>("ResolvedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<int?>("ReviewedByUserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("ServiceType")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("SurveyNumber")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("Taluk")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("TaxReceiptNumber")
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("TransactionId")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("Village")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("ReviewedByUserId");
+
+                b.HasIndex("UserId");
+
+                b.ToTable("LandRevenues");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.LandRevenueServiceType", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
+
+                b.Property<decimal>("Fees")
+                    .HasColumnType("decimal(18,2)");
+
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
+
+                b.Property<string>("ProcessingTime")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("RequiredDocuments")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<string>("ServiceName")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.HasKey("Id");
+
+                b.ToTable("LandRevenueServiceTypes");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.Scheme", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("Benefits")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<string>("Category")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Department")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
+
+                b.Property<string>("EligibilityCriteria")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("FormFields")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
+
+                b.Property<string>("MoreInfoUrl")
+                    .HasMaxLength(255)
+                    .HasColumnType("nvarchar(255)");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("RequiredDocuments")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("nvarchar(1000)");
+
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("datetime2");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Category");
+
+                b.ToTable("Schemes");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.SchemeApplication", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("ApplicationData")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Notes")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("ReferenceNumber")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<DateTime?>("ReviewedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<int?>("ReviewedByUserId")
+                    .HasColumnType("int");
+
+                b.Property<int>("SchemeId")
+                    .HasColumnType("int");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<DateTime?>("SubmittedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("SupportingDocuments")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
+
+                b.HasKey("Id");
+
+                b.HasIndex("ReviewedByUserId");
+
+                b.HasIndex("SchemeId");
+
+                b.HasIndex("UserId");
+
+                b.ToTable("SchemeApplications");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.ServiceCategory", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("ColorClass")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
+
+                b.Property<int>("DisplayOrder")
+                    .HasColumnType("int");
+
+                b.Property<string>("Icon")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.HasKey("Id");
+
+                b.ToTable("ServiceCategories");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.ServiceRequest", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<int?>("AssignedToUserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("AttachmentUrl")
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("Category")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Description")
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
+
+                b.Property<string>("Landmark")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<DateTime?>("LastUpdatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Location")
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<string>("Priority")
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("ReferenceNumber")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("Resolution")
+                    .HasMaxLength(500)
+                    .HasColumnType("nvarchar(500)");
+
+                b.Property<DateTime?>("ResolvedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("Status")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("Title")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<int>("UserId")
+                    .HasColumnType("int");
+
+                b.Property<string>("Ward")
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("AssignedToUserId");
+
+                b.HasIndex("UserId");
+
+                b.ToTable("ServiceRequests");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.User", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
+
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                b.Property<string>("Address")
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnType("nvarchar(200)");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("District")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("EmailId")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<string>("FullName")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("nvarchar(100)");
+
+                b.Property<bool>("IsActive")
+                    .HasColumnType("bit");
+
+                b.Property<DateTime?>("LastLoginAt")
+                    .HasColumnType("datetime2");
+
+                b.Property<string>("MobileNo")
+                    .IsRequired()
+                    .HasMaxLength(15)
+                    .HasColumnType("nvarchar(15)");
+
+                b.Property<string>("PasswordHash")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("PasswordSalt")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
+
+                b.Property<string>("RoleName")
+                    .IsRequired()
+                    .HasMaxLength(20)
+                    .HasColumnType("nvarchar(20)");
+
+                b.Property<string>("State")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.Property<string>("Village")
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnType("nvarchar(50)");
+
+                b.HasKey("Id");
+
+                b.HasIndex("EmailId")
+                    .IsUnique();
+
+                b.ToTable("Users");
+            });
+
             modelBuilder.Entity("SmartVillageAPI.Models.Announcement", b =>
             {
                 b.HasOne("SmartVillageAPI.Models.User", "User")
@@ -352,13 +854,100 @@ namespace SmartVillageAPI.Migrations
                 b.Navigation("User");
             });
 
-            modelBuilder.Entity("SmartVillageAPI.Models.ServiceRequest", b =>
+            modelBuilder.Entity("SmartVillageAPI.Models.DisasterManagement", b =>
             {
+                b.HasOne("SmartVillageAPI.Models.User", "ReviewedByUser")
+                    .WithMany()
+                    .HasForeignKey("ReviewedByUserId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 b.HasOne("SmartVillageAPI.Models.User", "User")
                     .WithMany()
                     .HasForeignKey("UserId")
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
+
+                b.Navigation("ReviewedByUser");
+
+                b.Navigation("User");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.DisputeResolution", b =>
+            {
+                b.HasOne("SmartVillageAPI.Models.User", "ReviewedByUser")
+                    .WithMany()
+                    .HasForeignKey("ReviewedByUserId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne("SmartVillageAPI.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("ReviewedByUser");
+
+                b.Navigation("User");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.LandRevenue", b =>
+            {
+                b.HasOne("SmartVillageAPI.Models.User", "ReviewedByUser")
+                    .WithMany()
+                    .HasForeignKey("ReviewedByUserId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne("SmartVillageAPI.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("ReviewedByUser");
+
+                b.Navigation("User");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.SchemeApplication", b =>
+            {
+                b.HasOne("SmartVillageAPI.Models.User", "ReviewedByUser")
+                    .WithMany()
+                    .HasForeignKey("ReviewedByUserId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne("SmartVillageAPI.Models.Scheme", "Scheme")
+                    .WithMany()
+                    .HasForeignKey("SchemeId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("SmartVillageAPI.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+
+                b.Navigation("ReviewedByUser");
+
+                b.Navigation("Scheme");
+
+                b.Navigation("User");
+            });
+
+            modelBuilder.Entity("SmartVillageAPI.Models.ServiceRequest", b =>
+            {
+                b.HasOne("SmartVillageAPI.Models.User", "AssignedToUser")
+                    .WithMany()
+                    .HasForeignKey("AssignedToUserId")
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne("SmartVillageAPI.Models.User", "User")
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("AssignedToUser");
 
                 b.Navigation("User");
             });

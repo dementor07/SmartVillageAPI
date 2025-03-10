@@ -11,11 +11,16 @@ namespace SmartVillageAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<DatabaseRepairController> _logger;
+        private readonly IWebHostEnvironment _environment;
 
-        public DatabaseRepairController(ApplicationDbContext context, ILogger<DatabaseRepairController> logger)
+        public DatabaseRepairController(
+            ApplicationDbContext context,
+            ILogger<DatabaseRepairController> logger,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _logger = logger;
+            _environment = environment;
         }
 
         // This endpoint is for development and initial setup only
@@ -23,81 +28,118 @@ namespace SmartVillageAPI.Controllers
         [HttpGet("repair")]
         public async Task<IActionResult> RepairDatabase()
         {
+            // Only allow in development environment
+            if (!_environment.IsDevelopment())
+                return Forbid();
+
             try
             {
                 _logger.LogInformation("Starting database repair process");
 
-                // Apply migration fix utility with a fresh context
-                // Create a new DbContext to avoid connection issues
-                var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                    .UseSqlServer(_context.Database.GetConnectionString())
-                    .Options;
-
-                using (var newContext = new ApplicationDbContext(options))
+                // Check database connection
+                if (!await _context.Database.CanConnectAsync())
                 {
-                    await MigrationFixUtility.FixMigrations(newContext, _logger);
+                    return StatusCode(500, new { message = "Cannot connect to database" });
                 }
 
-                // Get the status of all required tables
-                var tableStatus = new Dictionary<string, bool>();
+                // Get the current migration status
+                var pendingMigrations = await _context.Database.GetPendingMigrationsAsync();
+                var appliedMigrations = await _context.Database.GetAppliedMigrationsAsync();
 
-                // Get status of critical tables using direct SQL to avoid connection issues
-                var criticalTables = new[]
-                {
-                    "Users", "ServiceRequests", "Certificates", "Announcements",
-                    "Schemes", "SchemeApplications", "ServiceCategories",
-                    "LandRevenueServiceTypes", "LandRevenues",
-                    "DisputeResolutions", "DisasterManagements"
-                };
-
-                foreach (var table in criticalTables)
-                {
-                    try
-                    {
-                        // Create a new connection for each check
-                        using var newContext = new ApplicationDbContext(
-                            new DbContextOptionsBuilder<ApplicationDbContext>()
-                                .UseSqlServer(_context.Database.GetConnectionString())
-                                .Options);
-
-                        var sql = $"IF OBJECT_ID(N'[dbo].[{table}]', N'U') IS NOT NULL SELECT 1 ELSE SELECT 0";
-                        var exists = await newContext.Database.ExecuteSqlRawAsync(sql) == 1;
-                        tableStatus[table] = exists;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Error checking table {table}");
-                        tableStatus[table] = false;
-                    }
-                }
-
-                // Attempt to seed essential data with another fresh context
+                // Force a new migration by deleting all previous migrations
                 try
                 {
-                    using var seedContext = new ApplicationDbContext(
-                        new DbContextOptionsBuilder<ApplicationDbContext>()
-                            .UseSqlServer(_context.Database.GetConnectionString())
-                            .Options);
+                    // First detach the database to allow clean migration
+                    await _context.Database.EnsureDeletedAsync();
 
-                    DbInitializer.SeedData(seedContext);
-                    _logger.LogInformation("Database seeding completed");
+                    // Recreate database and apply migrations
+                    await _context.Database.MigrateAsync();
+
+                    // Seed the data
+                    DbInitializer.SeedData(_context);
+
+                    _logger.LogInformation("Database has been completely reset and migrated successfully");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error during database seeding");
-                    // Continue despite seeding error
+                    _logger.LogError(ex, "Error during migration reset");
+                    return StatusCode(500, new { message = "Error during migration reset", error = ex.Message });
                 }
+
+                // Verify the database schema is intact
+                var tableStatus = await VerifyTables();
 
                 return Ok(new
                 {
                     message = "Database repair process completed",
-                    tablesStatus = tableStatus
+                    previousState = new
+                    {
+                        pendingMigrations = pendingMigrations.ToList(),
+                        appliedMigrations = appliedMigrations.ToList()
+                    },
+                    currentState = new
+                    {
+                        tablesStatus = tableStatus
+                    }
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during database repair");
                 return StatusCode(500, new { message = "An error occurred during database repair", error = ex.Message });
+            }
+        }
+
+        private async Task<Dictionary<string, bool>> VerifyTables()
+        {
+            var tableStatus = new Dictionary<string, bool>();
+
+            var criticalTables = new[]
+            {
+                "Users", "ServiceRequests", "Certificates", "Announcements",
+                "Schemes", "SchemeApplications", "ServiceCategories",
+                "LandRevenueServiceTypes", "LandRevenues",
+                "DisputeResolutions", "DisasterManagements"
+            };
+
+            foreach (var table in criticalTables)
+            {
+                bool exists = await TableExists(table);
+                tableStatus[table] = exists;
+                _logger.LogInformation($"Table '{table}' exists and is accessible: {exists}");
+            }
+
+            return tableStatus;
+        }
+
+        private async Task<bool> TableExists(string tableName)
+        {
+            try
+            {
+                var sql = $"SELECT CASE WHEN OBJECT_ID(N'[dbo].[{tableName}]', N'U') IS NOT NULL THEN 1 ELSE 0 END";
+                var connection = _context.Database.GetDbConnection();
+                bool wasOpen = connection.State == System.Data.ConnectionState.Open;
+
+                if (!wasOpen)
+                    await connection.OpenAsync();
+
+                try
+                {
+                    using var command = connection.CreateCommand();
+                    command.CommandText = sql;
+                    var result = await command.ExecuteScalarAsync();
+                    return Convert.ToInt32(result) == 1;
+                }
+                finally
+                {
+                    if (!wasOpen)
+                        await connection.CloseAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error checking if table {tableName} exists");
+                return false;
             }
         }
     }
