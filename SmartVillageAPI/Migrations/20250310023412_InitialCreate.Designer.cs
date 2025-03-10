@@ -12,7 +12,7 @@ using SmartVillageAPI.Data;
 namespace SmartVillageAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250310021214_InitialCreate")]
+    [Migration("20250310023412_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
