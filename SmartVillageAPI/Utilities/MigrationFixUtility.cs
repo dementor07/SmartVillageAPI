@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartVillageAPI.Data;
+using System.Reflection;
 
 namespace SmartVillageAPI.Utilities
 {
@@ -50,7 +51,6 @@ namespace SmartVillageAPI.Utilities
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error fixing migrations");
-                // Don't try fallback to avoid connection issues
             }
         }
 
@@ -76,9 +76,7 @@ namespace SmartVillageAPI.Utilities
 
                 try
                 {
-                    // Use a separate DbContext for each operation to avoid connection issues
-                    using var scope = new DbContextScope<ApplicationDbContext>(context);
-                    exists = await TableExistsScoped(scope.Context, table);
+                    exists = await TableExistsScoped(context, table, logger);
                     logger.LogInformation($"Table '{table}' exists: {exists}");
                 }
                 catch (Exception ex)
@@ -91,9 +89,7 @@ namespace SmartVillageAPI.Utilities
                 {
                     try
                     {
-                        // Use another separate DbContext for creating table
-                        using var scope = new DbContextScope<ApplicationDbContext>(context);
-                        await CreateTableScoped(scope.Context, table, logger);
+                        await CreateTableScoped(context, table, logger);
                     }
                     catch (Exception ex)
                     {
@@ -104,51 +100,9 @@ namespace SmartVillageAPI.Utilities
         }
 
         /// <summary>
-        /// Helper class to scope DbContext operations
+        /// Checks if a table exists using the current context
         /// </summary>
-        private class DbContextScope<T> : IDisposable where T : DbContext
-        {
-            public T Context { get; }
-
-            public DbContextScope(T originalContext)
-            {
-                var options = originalContext.GetDbContextOptions();
-                if (options != null)
-                {
-                    Context = (T)Activator.CreateInstance(typeof(T), options)!;
-                }
-                else
-                {
-                    throw new InvalidOperationException("Failed to get DbContext options");
-                }
-            }
-
-            public void Dispose()
-            {
-                Context?.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// Extension method to get options from DbContext
-        /// </summary>
-        private static DbContextOptions<T>? GetDbContextOptions<T>(this T context) where T : DbContext
-        {
-            var property = context.GetType()
-                .GetProperty("ContextOptions", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-
-            if (property != null)
-            {
-                return (DbContextOptions<T>?)property.GetValue(context);
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Checks if a table exists using scoped context
-        /// </summary>
-        private static async Task<bool> TableExistsScoped(ApplicationDbContext context, string tableName)
+        private static async Task<bool> TableExistsScoped(ApplicationDbContext context, string tableName, ILogger logger)
         {
             try
             {
@@ -156,8 +110,9 @@ namespace SmartVillageAPI.Utilities
                 var result = await context.Database.ExecuteSqlRawAsync(sql);
                 return result == 1;
             }
-            catch
+            catch (Exception ex)
             {
+                logger.LogError(ex, $"Error checking existence of table {tableName}");
                 return false;
             }
         }
@@ -167,28 +122,38 @@ namespace SmartVillageAPI.Utilities
         /// </summary>
         private static async Task CreateTableScoped(ApplicationDbContext context, string tableName, ILogger logger)
         {
-            logger.LogInformation($"Creating missing table: {tableName}");
+            logger.LogInformation($"Checking table: {tableName}");
 
-            string createTableSql = GetCreateTableSql(tableName);
-
-            if (!string.IsNullOrEmpty(createTableSql))
+            try
             {
-                try
+                // Check if table already exists
+                var existsSql = $"SELECT CASE WHEN OBJECT_ID(N'[dbo].[{tableName}]', N'U') IS NOT NULL THEN 1 ELSE 0 END";
+                var result = await context.Database.ExecuteSqlRawAsync(existsSql);
+
+                if (result == 1)
+                {
+                    logger.LogInformation($"Table {tableName} already exists. Skipping creation.");
+                    return;
+                }
+
+                // If table doesn't exist, try to create it
+                string createTableSql = GetCreateTableSql(tableName);
+
+                if (!string.IsNullOrEmpty(createTableSql))
                 {
                     await context.Database.ExecuteSqlRawAsync(createTableSql);
                     logger.LogInformation($"Created table: {tableName}");
                 }
-                catch (Exception ex)
+                else
                 {
-                    logger.LogError(ex, $"Error creating table: {tableName}");
+                    logger.LogWarning($"No SQL definition found for table: {tableName}");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                logger.LogWarning($"No SQL definition found for table: {tableName}");
+                logger.LogError(ex, $"Error processing table {tableName}");
             }
         }
-
         /// <summary>
         /// Gets the SQL statements for creating each table
         /// </summary>
@@ -196,240 +161,253 @@ namespace SmartVillageAPI.Utilities
         {
             switch (tableName)
             {
-                case "ServiceCategories":
+                case "Users":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ServiceCategories')
-BEGIN
-    CREATE TABLE [ServiceCategories] (
-        [Id] int NOT NULL IDENTITY,
-        [Name] nvarchar(100) NOT NULL,
-        [Description] nvarchar(500) NOT NULL,
-        [Icon] nvarchar(50) NOT NULL,
-        [ColorClass] nvarchar(50) NOT NULL,
-        [IsActive] bit NOT NULL,
-        [DisplayOrder] int NOT NULL,
-        CONSTRAINT [PK_ServiceCategories] PRIMARY KEY ([Id])
-    );
-END";
+CREATE TABLE [Users] (
+    [Id] int NOT NULL IDENTITY,
+    [FullName] nvarchar(100) NOT NULL,
+    [MobileNo] nvarchar(15) NOT NULL,
+    [EmailId] nvarchar(100) NOT NULL,
+    [PasswordHash] nvarchar(max) NOT NULL,
+    [PasswordSalt] nvarchar(max) NOT NULL,
+    [State] nvarchar(50) NOT NULL,
+    [District] nvarchar(50) NOT NULL,
+    [Village] nvarchar(50) NOT NULL,
+    [Address] nvarchar(200) NOT NULL,
+    [RoleName] nvarchar(20) NOT NULL DEFAULT 'Resident',
+    [CreatedAt] datetime2 NOT NULL,
+    [LastLoginAt] datetime2 NULL,
+    [IsActive] bit NOT NULL DEFAULT 1,
+    CONSTRAINT [PK_Users] PRIMARY KEY ([Id]),
+    CONSTRAINT [UQ_Users_EmailId] UNIQUE ([EmailId])
+);";
 
-                case "LandRevenueServiceTypes":
+                case "Announcements":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'LandRevenueServiceTypes')
-BEGIN
-    CREATE TABLE [LandRevenueServiceTypes] (
-        [Id] int NOT NULL IDENTITY,
-        [ServiceName] nvarchar(100) NOT NULL,
-        [Description] nvarchar(500) NOT NULL,
-        [RequiredDocuments] nvarchar(1000) NOT NULL,
-        [ProcessingTime] nvarchar(100) NOT NULL,
-        [Fees] decimal(18,2) NOT NULL,
-        [IsActive] bit NOT NULL,
-        CONSTRAINT [PK_LandRevenueServiceTypes] PRIMARY KEY ([Id])
-    );
-END";
+CREATE TABLE [Announcements] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [Title] nvarchar(100) NOT NULL,
+    [Content] nvarchar(1000) NOT NULL,
+    [Category] nvarchar(50) NOT NULL,
+    [IsPublished] bit NOT NULL DEFAULT 1,
+    [CreatedAt] datetime2 NOT NULL,
+    [ExpiresAt] datetime2 NULL,
+    CONSTRAINT [PK_Announcements] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Announcements_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+);";
 
-                case "SchemeApplications":
+                case "ServiceRequests":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-BEGIN
-    CREATE TABLE [SchemeApplications] (
-        [Id] int NOT NULL IDENTITY,
-        [SchemeId] int NOT NULL,
-        [UserId] int NOT NULL,
-        [ApplicationData] nvarchar(max) NOT NULL,
-        [Status] nvarchar(20) NOT NULL,
-        [ReferenceNumber] nvarchar(max) NULL,
-        [Notes] nvarchar(max) NULL,
-        [SupportingDocuments] nvarchar(max) NULL,
-        [CreatedAt] datetime2 NOT NULL,
-        [SubmittedAt] datetime2 NULL,
-        [ReviewedAt] datetime2 NULL,
-        [ReviewedByUserId] int NULL,
-        CONSTRAINT [PK_SchemeApplications] PRIMARY KEY ([Id])
-    );
+CREATE TABLE [ServiceRequests] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [AssignedToUserId] int NULL,
+    [Title] nvarchar(100) NOT NULL,
+    [Description] nvarchar(500) NOT NULL,
+    [Category] nvarchar(50) NOT NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [Resolution] nvarchar(500) NULL,
+    [Location] nvarchar(200) NULL,
+    [Ward] nvarchar(50) NULL,
+    [Landmark] nvarchar(50) NULL,
+    [Priority] nvarchar(20) NULL DEFAULT 'Normal',
+    [ReferenceNumber] nvarchar(50) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ResolvedAt] datetime2 NULL,
+    [LastUpdatedAt] datetime2 NULL,
+    [AttachmentUrl] nvarchar(max) NULL,
+    CONSTRAINT [PK_ServiceRequests] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_ServiceRequests_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_ServiceRequests_Users_AssignedToUserId] FOREIGN KEY ([AssignedToUserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+);";
 
-    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Schemes') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-    BEGIN
-        ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Schemes_SchemeId] 
-        FOREIGN KEY ([SchemeId]) REFERENCES [Schemes] ([Id]) ON DELETE CASCADE;
-    END
-
-    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Users') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'SchemeApplications')
-    BEGIN
-        ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Users_ReviewedByUserId] 
-        FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]);
-        
-        ALTER TABLE [SchemeApplications] ADD CONSTRAINT [FK_SchemeApplications_Users_UserId] 
-        FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]);
-    END
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_SchemeId')
-        CREATE INDEX [IX_SchemeApplications_SchemeId] ON [SchemeApplications] ([SchemeId]);
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_ReviewedByUserId')
-        CREATE INDEX [IX_SchemeApplications_ReviewedByUserId] ON [SchemeApplications] ([ReviewedByUserId]);
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SchemeApplications_UserId')
-        CREATE INDEX [IX_SchemeApplications_UserId] ON [SchemeApplications] ([UserId]);
-END";
+                case "Certificates":
+                    return @"
+CREATE TABLE [Certificates] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [CertificateType] nvarchar(100) NOT NULL,
+    [ApplicantName] nvarchar(200) NOT NULL,
+    [Gender] nvarchar(10) NULL,
+    [Age] int NULL,
+    [Address] nvarchar(500) NULL,
+    [FatherName] nvarchar(200) NULL,
+    [Religion] nvarchar(50) NULL,
+    [Caste] nvarchar(50) NULL,
+    [PostOffice] nvarchar(100) NULL,
+    [PinCode] nvarchar(20) NULL,
+    [State] nvarchar(50) NULL,
+    [District] nvarchar(50) NULL,
+    [Village] nvarchar(50) NULL,
+    [Taluk] nvarchar(50) NULL,
+    [Location] nvarchar(100) NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [ReferenceNumber] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ReviewedAt] datetime2 NULL,
+    CONSTRAINT [PK_Certificates] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Certificates_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE
+);";
 
                 case "Schemes":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Schemes')
-BEGIN
-    CREATE TABLE [Schemes] (
-        [Id] int NOT NULL IDENTITY,
-        [Name] nvarchar(100) NOT NULL,
-        [Description] nvarchar(500) NOT NULL,
-        [Category] nvarchar(50) NOT NULL,
-        [EligibilityCriteria] nvarchar(max) NOT NULL,
-        [FormFields] nvarchar(max) NOT NULL,
-        [Benefits] nvarchar(1000) NOT NULL,
-        [RequiredDocuments] nvarchar(1000) NOT NULL,
-        [Department] nvarchar(200) NOT NULL,
-        [MoreInfoUrl] nvarchar(255) NULL,
-        [IsActive] bit NOT NULL,
-        [CreatedAt] datetime2 NOT NULL,
-        [UpdatedAt] datetime2 NULL,
-        CONSTRAINT [PK_Schemes] PRIMARY KEY ([Id])
-    );
+CREATE TABLE [Schemes] (
+    [Id] int NOT NULL IDENTITY,
+    [Name] nvarchar(100) NOT NULL,
+    [Description] nvarchar(500) NOT NULL,
+    [Category] nvarchar(50) NOT NULL,
+    [EligibilityCriteria] nvarchar(max) NOT NULL,
+    [FormFields] nvarchar(max) NOT NULL,
+    [Benefits] nvarchar(1000) NOT NULL,
+    [RequiredDocuments] nvarchar(1000) NOT NULL,
+    [Department] nvarchar(200) NOT NULL,
+    [MoreInfoUrl] nvarchar(255) NULL,
+    [IsActive] bit NOT NULL DEFAULT 1,
+    [CreatedAt] datetime2 NOT NULL,
+    [UpdatedAt] datetime2 NULL,
+    CONSTRAINT [PK_Schemes] PRIMARY KEY ([Id])
+);
+CREATE NONCLUSTERED INDEX [IX_Schemes_Category] ON [Schemes] ([Category]);";
 
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Schemes_Category')
-        CREATE INDEX [IX_Schemes_Category] ON [Schemes] ([Category]);
-END";
+                case "SchemeApplications":
+                    return @"
+CREATE TABLE [SchemeApplications] (
+    [Id] int NOT NULL IDENTITY,
+    [SchemeId] int NOT NULL,
+    [UserId] int NOT NULL,
+    [ApplicationData] nvarchar(max) NOT NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [ReferenceNumber] nvarchar(max) NULL,
+    [Notes] nvarchar(max) NULL,
+    [SupportingDocuments] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [SubmittedAt] datetime2 NULL,
+    [ReviewedAt] datetime2 NULL,
+    [ReviewedByUserId] int NULL,
+    CONSTRAINT [PK_SchemeApplications] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_SchemeApplications_Schemes_SchemeId] FOREIGN KEY ([SchemeId]) REFERENCES [Schemes] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_SchemeApplications_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_SchemeApplications_Users_ReviewedByUserId] FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+);
+CREATE NONCLUSTERED INDEX [IX_SchemeApplications_SchemeId] ON [SchemeApplications] ([SchemeId]);
+CREATE NONCLUSTERED INDEX [IX_SchemeApplications_UserId] ON [SchemeApplications] ([UserId]);
+CREATE NONCLUSTERED INDEX [IX_SchemeApplications_ReviewedByUserId] ON [SchemeApplications] ([ReviewedByUserId]);";
+
+                case "ServiceCategories":
+                    return @"
+CREATE TABLE [ServiceCategories] (
+    [Id] int NOT NULL IDENTITY,
+    [Name] nvarchar(100) NOT NULL,
+    [Description] nvarchar(500) NOT NULL,
+    [Icon] nvarchar(50) NOT NULL,
+    [ColorClass] nvarchar(50) NOT NULL,
+    [IsActive] bit NOT NULL DEFAULT 1,
+    [DisplayOrder] int NOT NULL,
+    CONSTRAINT [PK_ServiceCategories] PRIMARY KEY ([Id])
+);";
+
+                case "LandRevenueServiceTypes":
+                    return @"
+CREATE TABLE [LandRevenueServiceTypes] (
+    [Id] int NOT NULL IDENTITY,
+    [ServiceName] nvarchar(100) NOT NULL,
+    [Description] nvarchar(500) NOT NULL,
+    [RequiredDocuments] nvarchar(1000) NOT NULL,
+    [ProcessingTime] nvarchar(100) NOT NULL,
+    [Fees] decimal(18,2) NOT NULL,
+    [IsActive] bit NOT NULL DEFAULT 1,
+    CONSTRAINT [PK_LandRevenueServiceTypes] PRIMARY KEY ([Id])
+);";
 
                 case "LandRevenues":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'LandRevenues')
-BEGIN
-    CREATE TABLE [LandRevenues] (
-        [Id] int NOT NULL IDENTITY,
-        [UserId] int NOT NULL,
-        [ServiceType] nvarchar(100) NOT NULL,
-        [SurveyNumber] nvarchar(50) NOT NULL,
-        [Village] nvarchar(50) NOT NULL,
-        [Taluk] nvarchar(50) NOT NULL,
-        [District] nvarchar(50) NOT NULL,
-        [LandOwnerName] nvarchar(200) NOT NULL,
-        [LandArea] nvarchar(50) NULL,
-        [LandType] nvarchar(50) NULL,
-        [PattaNumber] nvarchar(100) NULL,
-        [TaxReceiptNumber] nvarchar(100) NULL,
-        [AdditionalDetails] nvarchar(1000) NULL,
-        [Status] nvarchar(20) NOT NULL,
-        [RejectionReason] nvarchar(1000) NULL,
-        [ApprovalComments] nvarchar(1000) NULL,
-        [ReferenceNumber] nvarchar(max) NULL,
-        [CreatedAt] datetime2 NOT NULL,
-        [ResolvedAt] datetime2 NULL,
-        [ReviewedByUserId] int NULL,
-        [DocumentData] nvarchar(max) NULL,
-        [FeesAmount] decimal(18,2) NULL,
-        [PaymentStatus] nvarchar(50) NULL,
-        [TransactionId] nvarchar(50) NULL,
-        [PaymentDate] datetime2 NULL,
-        CONSTRAINT [PK_LandRevenues] PRIMARY KEY ([Id])
-    );
-
-    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Users') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'LandRevenues')
-    BEGIN
-        ALTER TABLE [LandRevenues] ADD CONSTRAINT [FK_LandRevenues_Users_ReviewedByUserId] 
-        FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]);
-        
-        ALTER TABLE [LandRevenues] ADD CONSTRAINT [FK_LandRevenues_Users_UserId] 
-        FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE;
-    END
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_LandRevenues_ReviewedByUserId')
-        CREATE INDEX [IX_LandRevenues_ReviewedByUserId] ON [LandRevenues] ([ReviewedByUserId]);
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_LandRevenues_UserId')
-        CREATE INDEX [IX_LandRevenues_UserId] ON [LandRevenues] ([UserId]);
-END";
+CREATE TABLE [LandRevenues] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [ServiceType] nvarchar(100) NOT NULL,
+    [SurveyNumber] nvarchar(50) NOT NULL,
+    [Village] nvarchar(50) NOT NULL,
+    [Taluk] nvarchar(50) NOT NULL,
+    [District] nvarchar(50) NOT NULL,
+    [LandOwnerName] nvarchar(200) NOT NULL,
+    [LandArea] nvarchar(50) NULL,
+    [LandType] nvarchar(50) NULL,
+    [PattaNumber] nvarchar(100) NULL,
+    [TaxReceiptNumber] nvarchar(100) NULL,
+    [AdditionalDetails] nvarchar(1000) NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [ReferenceNumber] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ResolvedAt] datetime2 NULL,
+    [DocumentData] nvarchar(max) NULL,
+    [FeesAmount] decimal(18,2) NULL,
+    [PaymentStatus] nvarchar(50) NULL,
+    [TransactionId] nvarchar(50) NULL,
+    [PaymentDate] datetime2 NULL,
+    [ReviewedByUserId] int NULL,
+    CONSTRAINT [PK_LandRevenues] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_LandRevenues_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_LandRevenues_Users_ReviewedByUserId] FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+);
+CREATE NONCLUSTERED INDEX [IX_LandRevenues_UserId] ON [LandRevenues] ([UserId]);
+CREATE NONCLUSTERED INDEX [IX_LandRevenues_ReviewedByUserId] ON [LandRevenues] ([ReviewedByUserId]);";
 
                 case "DisputeResolutions":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DisputeResolutions')
-BEGIN
-    CREATE TABLE [DisputeResolutions] (
-        [Id] int NOT NULL IDENTITY,
-        [UserId] int NOT NULL,
-        [Title] nvarchar(100) NOT NULL,
-        [Description] nvarchar(1000) NOT NULL,
-        [DisputeType] nvarchar(50) NOT NULL,
-        [PartiesInvolved] nvarchar(50) NOT NULL,
-        [Location] nvarchar(100) NULL,
-        [DisputeDate] datetime2 NOT NULL,
-        [PriorResolutionAttempts] nvarchar(1000) NULL,
-        [Status] nvarchar(20) NOT NULL,
-        [Resolution] nvarchar(1000) NULL,
-        [MediaterAssigned] nvarchar(50) NULL,
-        [HearingDate] datetime2 NULL,
-        [ReferenceNumber] nvarchar(max) NULL,
-        [CreatedAt] datetime2 NOT NULL,
-        [ResolvedAt] datetime2 NULL,
-        [ReviewedByUserId] int NULL,
-        [DocumentData] nvarchar(max) NULL,
-        CONSTRAINT [PK_DisputeResolutions] PRIMARY KEY ([Id])
-    );
-
-    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Users') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'DisputeResolutions')
-    BEGIN
-        ALTER TABLE [DisputeResolutions] ADD CONSTRAINT [FK_DisputeResolutions_Users_ReviewedByUserId] 
-        FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]);
-        
-        ALTER TABLE [DisputeResolutions] ADD CONSTRAINT [FK_DisputeResolutions_Users_UserId] 
-        FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE;
-    END
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_DisputeResolutions_ReviewedByUserId')
-        CREATE INDEX [IX_DisputeResolutions_ReviewedByUserId] ON [DisputeResolutions] ([ReviewedByUserId]);
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_DisputeResolutions_UserId')
-        CREATE INDEX [IX_DisputeResolutions_UserId] ON [DisputeResolutions] ([UserId]);
-END";
+CREATE TABLE [DisputeResolutions] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [Title] nvarchar(100) NOT NULL,
+    [Description] nvarchar(1000) NOT NULL,
+    [DisputeType] nvarchar(50) NOT NULL,
+    [PartiesInvolved] nvarchar(50) NOT NULL,
+    [Location] nvarchar(100) NULL,
+    [DisputeDate] datetime2 NOT NULL,
+    [PriorResolutionAttempts] nvarchar(1000) NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [Resolution] nvarchar(1000) NULL,
+    [MediaterAssigned] nvarchar(50) NULL,
+    [HearingDate] datetime2 NULL,
+    [ReferenceNumber] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ResolvedAt] datetime2 NULL,
+    [ReviewedByUserId] int NULL,
+    [DocumentData] nvarchar(max) NULL,
+    CONSTRAINT [PK_DisputeResolutions] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_DisputeResolutions_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_DisputeResolutions_Users_ReviewedByUserId] FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+);
+CREATE NONCLUSTERED INDEX [IX_DisputeResolutions_UserId] ON [DisputeResolutions] ([UserId]);
+CREATE NONCLUSTERED INDEX [IX_DisputeResolutions_ReviewedByUserId] ON [DisputeResolutions] ([ReviewedByUserId]);";
 
                 case "DisasterManagements":
                     return @"
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DisasterManagements')
-BEGIN
-    CREATE TABLE [DisasterManagements] (
-        [Id] int NOT NULL IDENTITY,
-        [UserId] int NOT NULL,
-        [Title] nvarchar(100) NOT NULL,
-        [Description] nvarchar(1000) NOT NULL,
-        [DisasterType] nvarchar(50) NOT NULL,
-        [Location] nvarchar(100) NOT NULL,
-        [OccurrenceDate] datetime2 NOT NULL,
-        [Severity] nvarchar(20) NULL,
-        [ImpactedArea] nvarchar(50) NULL,
-        [AffectedCount] nvarchar(20) NULL,
-        [Status] nvarchar(20) NOT NULL,
-        [Response] nvarchar(1000) NULL,
-        [AssignedTeam] nvarchar(100) NULL,
-        [ReferenceNumber] nvarchar(max) NULL,
-        [CreatedAt] datetime2 NOT NULL,
-        [ResolvedAt] datetime2 NULL,
-        [ReviewedByUserId] int NULL,
-        [ImageData] nvarchar(max) NULL,
-        CONSTRAINT [PK_DisasterManagements] PRIMARY KEY ([Id])
-    );
-
-    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'Users') AND EXISTS (SELECT * FROM sys.tables WHERE name = 'DisasterManagements')
-    BEGIN
-        ALTER TABLE [DisasterManagements] ADD CONSTRAINT [FK_DisasterManagements_Users_ReviewedByUserId] 
-        FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]);
-        
-        ALTER TABLE [DisasterManagements] ADD CONSTRAINT [FK_DisasterManagements_Users_UserId] 
-        FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE;
-    END
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_DisasterManagements_ReviewedByUserId')
-        CREATE INDEX [IX_DisasterManagements_ReviewedByUserId] ON [DisasterManagements] ([ReviewedByUserId]);
-
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_DisasterManagements_UserId')
-        CREATE INDEX [IX_DisasterManagements_UserId] ON [DisasterManagements] ([UserId]);
-END";
+CREATE TABLE [DisasterManagements] (
+    [Id] int NOT NULL IDENTITY,
+    [UserId] int NOT NULL,
+    [Title] nvarchar(100) NOT NULL,
+    [Description] nvarchar(1000) NOT NULL,
+    [DisasterType] nvarchar(50) NOT NULL,
+    [Location] nvarchar(100) NOT NULL,
+    [OccurrenceDate] datetime2 NOT NULL,
+    [Severity] nvarchar(20) NULL,
+    [ImpactedArea] nvarchar(50) NULL,
+    [AffectedCount] nvarchar(20) NULL,
+    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+    [Response] nvarchar(1000) NULL,
+    [AssignedTeam] nvarchar(100) NULL,
+    [ReferenceNumber] nvarchar(max) NULL,
+    [CreatedAt] datetime2 NOT NULL,
+    [ResolvedAt] datetime2 NULL,
+    [ReviewedByUserId] int NULL,
+    [ImageData] nvarchar(max) NULL,
+    CONSTRAINT [PK_DisasterManagements] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_DisasterManagements_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_DisasterManagements_Users_ReviewedByUserId] FOREIGN KEY ([ReviewedByUserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
+);
+CREATE NONCLUSTERED INDEX [IX_DisasterManagements_UserId] ON [DisasterManagements] ([UserId]);
+CREATE NONCLUSTERED INDEX [IX_DisasterManagements_ReviewedByUserId] ON [DisasterManagements] ([ReviewedByUserId]);";
 
                 default:
                     return string.Empty;

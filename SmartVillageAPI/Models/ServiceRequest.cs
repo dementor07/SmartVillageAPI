@@ -15,6 +15,11 @@ namespace SmartVillageAPI.Models
         [ForeignKey("UserId")]
         public User? User { get; set; } = null!;
 
+        public int? AssignedToUserId { get; set; }
+
+        [ForeignKey("AssignedToUserId")]
+        public User? AssignedToUser { get; set; }
+
         [Required]
         [StringLength(100)]
         public string Title { get; set; } = string.Empty;
@@ -48,20 +53,13 @@ namespace SmartVillageAPI.Models
         [StringLength(20)]
         public string? Priority { get; set; } = "Normal";
 
-        public int? AssignedToUserId { get; set; }
-
-        [ForeignKey("AssignedToUserId")]
-        public User? AssignedToUser { get; set; }
-
         // Reference number for tracking
         [StringLength(50)]
         public string? ReferenceNumber { get; set; }
 
         // Timestamps
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
         public DateTime? ResolvedAt { get; set; }
-
         public DateTime? LastUpdatedAt { get; set; }
 
         // Document attachment (simplified)

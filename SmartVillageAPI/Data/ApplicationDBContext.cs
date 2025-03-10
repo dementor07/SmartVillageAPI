@@ -10,6 +10,7 @@ namespace SmartVillageAPI.Data
         {
         }
 
+        // Existing DbSet properties
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<ServiceRequest> ServiceRequests { get; set; } = null!;
         public DbSet<Announcement> Announcements { get; set; } = null!;
@@ -35,19 +36,28 @@ namespace SmartVillageAPI.Data
                 .HasIndex(u => u.EmailId)
                 .IsUnique();
 
-            // Relationships
+            // ServiceRequest relationships
             modelBuilder.Entity<ServiceRequest>()
                 .HasOne(sr => sr.User)
                 .WithMany()
                 .HasForeignKey(sr => sr.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<ServiceRequest>()
+                .HasOne(sr => sr.AssignedToUser)
+                .WithMany()
+                .HasForeignKey(sr => sr.AssignedToUserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Announcement relationships
             modelBuilder.Entity<Announcement>()
                 .HasOne(a => a.User)
                 .WithMany()
                 .HasForeignKey(a => a.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Certificate relationships
             modelBuilder.Entity<Certificate>()
                 .HasOne(c => c.User)
                 .WithMany()
@@ -75,6 +85,17 @@ namespace SmartVillageAPI.Data
                 .IsRequired(false);
 
             // Land Revenue relationships
+            ConfigureLandRevenueRelationships(modelBuilder);
+
+            // Dispute Resolution relationships
+            ConfigureDisputeResolutionRelationships(modelBuilder);
+
+            // Disaster Management relationships
+            ConfigureDisasterManagementRelationships(modelBuilder);
+        }
+
+        private void ConfigureLandRevenueRelationships(ModelBuilder modelBuilder)
+        {
             modelBuilder.Entity<LandRevenue>()
                 .HasOne(lr => lr.User)
                 .WithMany()
@@ -87,8 +108,10 @@ namespace SmartVillageAPI.Data
                 .HasForeignKey(lr => lr.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(false);
+        }
 
-            // Dispute Resolution relationships
+        private void ConfigureDisputeResolutionRelationships(ModelBuilder modelBuilder)
+        {
             modelBuilder.Entity<DisputeResolution>()
                 .HasOne(dr => dr.User)
                 .WithMany()
@@ -101,8 +124,10 @@ namespace SmartVillageAPI.Data
                 .HasForeignKey(dr => dr.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(false);
+        }
 
-            // Disaster Management relationships
+        private void ConfigureDisasterManagementRelationships(ModelBuilder modelBuilder)
+        {
             modelBuilder.Entity<DisasterManagement>()
                 .HasOne(dm => dm.User)
                 .WithMany()
