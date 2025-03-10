@@ -139,11 +139,30 @@ using (var scope = app.Services.CreateScope())
         // Ensure database exists
         context.Database.EnsureCreated();
 
-        // Check if tables exist and create them if needed
-        await DatabaseInitializer.EnsureTablesExist(context, logger);
+        // NEW: Fix migrations using our utility with fresh context to avoid connection issues
+        logger.LogInformation("Applying database migrations and fixes...");
+
+        // Create a new context for migrations to avoid connection state issues
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(context.Database.GetConnectionString())
+            .Options;
+
+        using (var newContext = new ApplicationDbContext(options))
+        {
+            await MigrationFixUtility.FixMigrations(newContext, logger);
+        }
+
+        // Also run the original table check logic for backward compatibility
+        using (var newContext = new ApplicationDbContext(options))
+        {
+            await DatabaseInitializer.EnsureTablesExist(newContext, logger);
+        }
 
         logger.LogInformation("Seeding database...");
-        DbInitializer.SeedData(context);
+        using (var newContext = new ApplicationDbContext(options))
+        {
+            DbInitializer.SeedData(newContext);
+        }
 
         logger.LogInformation("Database initialization complete");
     }

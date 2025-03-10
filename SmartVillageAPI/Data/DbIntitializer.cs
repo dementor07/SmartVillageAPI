@@ -21,11 +21,43 @@ namespace SmartVillageAPI.Data
             // Seed Users
             SeedUsers(context);
 
-            // Seed Service Categories
-            SeedServiceCategories(context);
+            // Seed Service Categories with improved error handling
+            try
+            {
+                SeedServiceCategories(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding service categories: {ex.Message}");
+                // Detailed diagnostics
+                if (TableExists(context, "ServiceCategories"))
+                {
+                    Console.WriteLine("ServiceCategories table exists but the query failed. Check permissions or schema.");
+                }
+                else
+                {
+                    Console.WriteLine("ServiceCategories table doesn't exist. Run migrations or use the MigrationFixUtility.");
+                }
+            }
 
-            // Seed Land Revenue Service Types
-            SeedLandRevenueServiceTypes(context);
+            // Seed Land Revenue Service Types with improved error handling
+            try
+            {
+                SeedLandRevenueServiceTypes(context);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeding land revenue service types: {ex.Message}");
+                // Detailed diagnostics
+                if (TableExists(context, "LandRevenueServiceTypes"))
+                {
+                    Console.WriteLine("LandRevenueServiceTypes table exists but the query failed. Check permissions or schema.");
+                }
+                else
+                {
+                    Console.WriteLine("LandRevenueServiceTypes table doesn't exist. Run migrations or use the MigrationFixUtility.");
+                }
+            }
 
             // Seed Schemes - Try with proper error handling
             try
@@ -36,6 +68,26 @@ namespace SmartVillageAPI.Data
             {
                 Console.WriteLine($"Error seeding schemes: {ex.Message}");
                 // Continue execution despite error
+            }
+        }
+
+        private static bool TableExists(ApplicationDbContext context, string tableName)
+        {
+            try
+            {
+                var sql = $"IF OBJECT_ID(N'[dbo].[{tableName}]', N'U') IS NOT NULL SELECT 1 ELSE SELECT 0";
+                var connection = context.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                    connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = sql;
+                var result = command.ExecuteScalar();
+                return Convert.ToInt32(result) == 1;
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -135,10 +187,29 @@ namespace SmartVillageAPI.Data
 
         private static void SeedServiceCategories(ApplicationDbContext context)
         {
+            // Extra safety check if table exists
+            if (!TableExists(context, "ServiceCategories"))
+            {
+                Console.WriteLine("ServiceCategories table does not exist. Skipping seed.");
+                return;
+            }
+
             try
             {
-                // Check if any service categories exist
-                if (!context.ServiceCategories.Any())
+                // Check if any service categories exist using direct SQL
+                var sql = "SELECT COUNT(*) FROM ServiceCategories";
+                var connection = context.Database.GetDbConnection();
+
+                if (connection.State != System.Data.ConnectionState.Open)
+                    connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = sql;
+
+                var result = command.ExecuteScalar();
+                var count = Convert.ToInt32(result);
+
+                if (count == 0)
                 {
                     Console.WriteLine("Seeding service categories...");
 
@@ -213,19 +284,43 @@ namespace SmartVillageAPI.Data
                     context.SaveChanges();
                     Console.WriteLine($"Successfully seeded {categories.Count} service categories");
                 }
+                else
+                {
+                    Console.WriteLine($"ServiceCategories already has {count} records. Skipping seed.");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error seeding service categories: {ex.Message}");
+                throw; // Re-throw to be caught by the caller
             }
         }
 
         private static void SeedLandRevenueServiceTypes(ApplicationDbContext context)
         {
+            // Extra safety check if table exists
+            if (!TableExists(context, "LandRevenueServiceTypes"))
+            {
+                Console.WriteLine("LandRevenueServiceTypes table does not exist. Skipping seed.");
+                return;
+            }
+
             try
             {
-                // Check if any land revenue service types exist
-                if (!context.LandRevenueServiceTypes.Any())
+                // Check if any land revenue service types exist using direct SQL
+                var sql = "SELECT COUNT(*) FROM LandRevenueServiceTypes";
+                var connection = context.Database.GetDbConnection();
+
+                if (connection.State != System.Data.ConnectionState.Open)
+                    connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = sql;
+
+                var result = command.ExecuteScalar();
+                var count = Convert.ToInt32(result);
+
+                if (count == 0)
                 {
                     Console.WriteLine("Seeding land revenue service types...");
 
@@ -300,17 +395,51 @@ namespace SmartVillageAPI.Data
                     context.SaveChanges();
                     Console.WriteLine($"Successfully seeded {landServices.Count} land revenue service types");
                 }
+                else
+                {
+                    Console.WriteLine($"LandRevenueServiceTypes already has {count} records. Skipping seed.");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error seeding land revenue service types: {ex.Message}");
+                throw; // Re-throw to be caught by the caller
             }
         }
 
         private static void SeedSchemes(ApplicationDbContext context)
         {
             // Check if schemes exist using a safer method
-            if (!context.Schemes.Any())
+            if (!TableExists(context, "Schemes"))
+            {
+                Console.WriteLine("Schemes table does not exist. Skipping seed.");
+                return;
+            }
+
+            // Check if any schemes exist
+            bool schemesExist = false;
+            try
+            {
+                // Use direct SQL to check if any schemes exist
+                var sql = "SELECT COUNT(*) FROM Schemes";
+                var connection = context.Database.GetDbConnection();
+
+                if (connection.State != System.Data.ConnectionState.Open)
+                    connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = sql;
+
+                var result = command.ExecuteScalar();
+                schemesExist = Convert.ToInt32(result) > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking if schemes exist: {ex.Message}");
+                schemesExist = false;
+            }
+
+            if (!schemesExist)
             {
                 Console.WriteLine("No schemes found. Seeding schemes data...");
 
