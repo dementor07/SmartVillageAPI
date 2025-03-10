@@ -1,5 +1,4 @@
-// Web/smart-village-frontend/src/components/dashboard/Dashboard.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import AuthService from '../../services/auth.service';
 import AdminDashboard from './AdminDashboard';
@@ -10,17 +9,34 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    // Checking authentication only once on component mount
     useEffect(() => {
         // Check authentication and admin status
-        const authenticated = AuthService.isTokenValid();
-        setIsAuthenticated(authenticated);
+        const checkAuth = () => {
+            const authenticated = AuthService.isTokenValid();
+            setIsAuthenticated(authenticated);
 
-        if (authenticated) {
-            setIsAdmin(AuthService.isAdmin());
-        }
+            if (authenticated) {
+                setIsAdmin(AuthService.isAdmin());
+            }
 
-        setLoading(false);
-    }, []);
+            setLoading(false);
+        };
+
+        checkAuth();
+
+        // Event listener for storage changes
+        const handleStorageChange = () => {
+            checkAuth();
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // Cleanup function to prevent memory leaks
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []); // Empty dependency array - only run on mount
 
     // Show loading state
     if (loading) {
