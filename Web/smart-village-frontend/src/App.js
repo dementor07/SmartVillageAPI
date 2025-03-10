@@ -19,13 +19,26 @@ import CertificateList from './components/certificates/CertificateList';
 import CertificateDetails from './components/certificates/CertificateDetails';
 import CertificateApplication from './components/certificates/CertificateApplication';
 
-// New scheme components
+// Scheme components
 import SchemeList from './components/schemes/SchemeList';
 import SchemeDetails from './components/schemes/SchemeDetails';
 import SchemeApplicationForm from './components/schemes/SchemeApplicationForm';
 import MyApplications from './components/schemes/MyApplications';
 import ApplicationDetails from './components/schemes/ApplicationDetails';
 import AdminApplicationsList from './components/schemes/AdminApplicationsList';
+
+// Land Revenue, Dispute Resolution, and Disaster Management components
+import LandRevenueList from './components/LandRevenueList';
+import LandRevenueDetails from './components/LandRevenueDetails';
+import CreateLandRevenue from './components/CreateLandRevenue';
+import LandRevenueServiceList from './components/LandRevenueServiceList';
+import DisputeCaseList from './components/DisputeCaseList';
+import DisputeCaseDetails from './components/DisputeCaseDetails';
+import CreateDisputeCase from './components/CreateDisputeCase';
+import DisasterCaseList from './components/DisasterCaseList';
+import DisasterCaseDetails from './components/DisasterCaseDetails';
+import CreateDisasterCase from './components/CreateDisasterCase';
+
 import AuthService from './services/auth.service';
 
 // Create a global navigation context
@@ -204,6 +217,62 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
 
+            {/* Land Revenue Routes */}
+            <Route path="/land-revenue/services" element={
+              <ProtectedRoute>
+                <LandRevenueServiceList />
+              </ProtectedRoute>
+            } />
+            <Route path="/land-revenue/my-applications" element={
+              <ProtectedRoute>
+                <LandRevenueList />
+              </ProtectedRoute>
+            } />
+            <Route path="/land-revenue/create" element={
+              <ProtectedRoute>
+                <CreateLandRevenue />
+              </ProtectedRoute>
+            } />
+            <Route path="/land-revenue/:id" element={
+              <ProtectedRoute>
+                <LandRevenueDetails />
+              </ProtectedRoute>
+            } />
+
+            {/* Dispute Resolution Routes */}
+            <Route path="/dispute-resolution/my-cases" element={
+              <ProtectedRoute>
+                <DisputeCaseList />
+              </ProtectedRoute>
+            } />
+            <Route path="/dispute-resolution/create" element={
+              <ProtectedRoute>
+                <CreateDisputeCase />
+              </ProtectedRoute>
+            } />
+            <Route path="/dispute-resolution/:id" element={
+              <ProtectedRoute>
+                <DisputeCaseDetails />
+              </ProtectedRoute>
+            } />
+
+            {/* Disaster Management Routes */}
+            <Route path="/disaster-management/my-cases" element={
+              <ProtectedRoute>
+                <DisasterCaseList />
+              </ProtectedRoute>
+            } />
+            <Route path="/disaster-management/create" element={
+              <ProtectedRoute>
+                <CreateDisasterCase />
+              </ProtectedRoute>
+            } />
+            <Route path="/disaster-management/:id" element={
+              <ProtectedRoute>
+                <DisasterCaseDetails />
+              </ProtectedRoute>
+            } />
+
             {/* Admin routes */}
             <Route path="/admin/requests" element={
               <AdminRoute>
@@ -240,6 +309,23 @@ const AppContent = () => {
             <Route path="/admin/schemes/applications" element={
               <AdminRoute>
                 <AdminApplicationsList />
+              </AdminRoute>
+            } />
+
+            {/* Admin routes for Land Revenue, Dispute Resolution, and Disaster Management */}
+            <Route path="/admin/land-revenue" element={
+              <AdminRoute>
+                <LandRevenueList adminView={true} />
+              </AdminRoute>
+            } />
+            <Route path="/admin/dispute-resolution" element={
+              <AdminRoute>
+                <DisputeCaseList adminView={true} />
+              </AdminRoute>
+            } />
+            <Route path="/admin/disaster-management" element={
+              <AdminRoute>
+                <DisasterCaseList adminView={true} />
               </AdminRoute>
             } />
 

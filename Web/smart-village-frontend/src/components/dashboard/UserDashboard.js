@@ -1,4 +1,4 @@
-// Web/smart-village-frontend/src/components/dashboard/UserDashboard.js
+// src/components/dashboard/UserDashboard.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import RequestService from '../../services/request.service';
@@ -22,28 +22,49 @@ const UserDashboard = () => {
             try {
                 setLoading(true);
 
-                // Fetch data in parallel with Promise.all
-                const [
-                    requestsResponse,
-                    certificatesResponse,
-                    announcementsResponse,
-                    schemesResponse,
-                    schemeApplicationsResponse
-                ] = await Promise.all([
-                    RequestService.getMyRequests(),
-                    CertificateService.getMyCertificates(),
-                    AnnouncementService.getAnnouncements(),
-                    SchemeService.getSchemes(),
-                    SchemeService.getMyApplications()
-                ]);
+                // Fetch data one by one to avoid Promise.all() failing completely if one fails
+                let reqData = [], certData = [], annData = [], schmData = [], appData = [];
 
-                setServiceRequests(requestsResponse.data);
-                setCertificates(certificatesResponse.data);
-                // Get just the latest 3 announcements
-                setAnnouncements(announcementsResponse.data.slice(0, 3));
-                // Get just 4 schemes for the dashboard
-                setAvailableSchemes(schemesResponse.data.slice(0, 4));
-                setSchemeApplications(schemeApplicationsResponse.data);
+                try {
+                    const requestsResponse = await RequestService.getMyRequests();
+                    reqData = requestsResponse.data;
+                } catch (e) {
+                    console.error("Error fetching requests:", e);
+                }
+
+                try {
+                    const certificatesResponse = await CertificateService.getMyCertificates();
+                    certData = certificatesResponse.data;
+                } catch (e) {
+                    console.error("Error fetching certificates:", e);
+                }
+
+                try {
+                    const announcementsResponse = await AnnouncementService.getAnnouncements();
+                    annData = announcementsResponse.data.slice(0, 3);
+                } catch (e) {
+                    console.error("Error fetching announcements:", e);
+                }
+
+                try {
+                    const schemesResponse = await SchemeService.getSchemes();
+                    schmData = schemesResponse.data.slice(0, 4);
+                } catch (e) {
+                    console.error("Error fetching schemes:", e);
+                }
+
+                try {
+                    const schemeApplicationsResponse = await SchemeService.getMyApplications();
+                    appData = schemeApplicationsResponse.data;
+                } catch (e) {
+                    console.error("Error fetching scheme applications:", e);
+                }
+
+                setServiceRequests(reqData);
+                setCertificates(certData);
+                setAnnouncements(annData);
+                setAvailableSchemes(schmData);
+                setSchemeApplications(appData);
 
                 setLoading(false);
             } catch (error) {
@@ -55,26 +76,6 @@ const UserDashboard = () => {
 
         fetchDashboardData();
     }, []);
-
-    if (loading) {
-        return (
-            <div className="container mt-4">
-                <div className="d-flex justify-content-center my-5">
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="container mt-4">
-                <div className="alert alert-danger">{error}</div>
-            </div>
-        );
-    }
 
     // Get status badge class for various statuses
     const getStatusBadgeClass = (status) => {
@@ -92,6 +93,18 @@ const UserDashboard = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="container mt-4">
+                <div className="d-flex justify-content-center my-5">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="container mt-4">
             <div className="row mb-4">
@@ -106,6 +119,12 @@ const UserDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {error && (
+                <div className="alert alert-danger" role="alert">
+                    {error}
+                </div>
+            )}
 
             {/* Dashboard summary cards */}
             <div className="row mb-4">
@@ -159,6 +178,7 @@ const UserDashboard = () => {
                 </div>
             </div>
 
+            {/* Service Requests Section */}
             <div className="row mb-4">
                 <div className="col-md-6 mb-4">
                     <div className="card h-100 border-primary">
@@ -269,7 +289,7 @@ const UserDashboard = () => {
                 </div>
             </div>
 
-            {/* New Scheme Applications Section */}
+            {/* Scheme Applications Section */}
             <div className="row mb-4">
                 <div className="col-md-6 mb-4">
                     <div className="card h-100 border-warning">

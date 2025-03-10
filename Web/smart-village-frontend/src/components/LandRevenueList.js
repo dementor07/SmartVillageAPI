@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import LandRevenueService from '../../services/landrevenue.service';
+import LandRevenueService from '../services/landrevenue.service';
 
 const LandRevenueList = ({ adminView = false }) => {
     const [applications, setApplications] = useState([]);

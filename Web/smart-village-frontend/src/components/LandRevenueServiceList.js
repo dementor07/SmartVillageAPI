@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import LandRevenueService from '../../services/landrevenue.service';
+import LandRevenueService from '../services/landrevenue.service';
 
 const LandRevenueServiceList = () => {
     const [services, setServices] = useState([]);

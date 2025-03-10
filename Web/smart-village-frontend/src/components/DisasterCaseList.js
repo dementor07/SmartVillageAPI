@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import DisasterService from '../../services/disaster.service';
+import DisasterService from '../services/disaster.service';
 
 const DisasterCaseList = ({ adminView = false }) => {
     const [cases, setCases] = useState([]);

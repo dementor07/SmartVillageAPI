@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import DisputeService from '../../services/dispute.service';
+import DisputeService from '../services/dispute.service';
 
 const DisputeCaseList = ({ adminView = false }) => {
     const [cases, setCases] = useState([]);
