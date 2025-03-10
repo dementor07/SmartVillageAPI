@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import LandRevenueService from '../../services/landrevenue.service';
-import AuthService from '../../services/auth.service';
+import LandRevenueService from '../services/landrevenue.service';
+import AuthService from '../services/auth.service';
 
 const LandRevenueDetails = () => {
     const { id } = useParams();

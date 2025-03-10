@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import DisasterService from '../../services/disaster.service';
-import AuthService from '../../services/auth.service';
+import DisasterService from '../services/disaster.service';
+import AuthService from '../services/auth.service';
 
 const DisasterCaseDetails = () => {
     const { id } = useParams();
