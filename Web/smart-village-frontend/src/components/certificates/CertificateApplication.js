@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import CertificateService from '../../services/certificate.service';
 
 const CertificateApplication = () => {
+    console.log("CertificateApplication component rendering");
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [selectedCertificateType, setSelectedCertificateType] = useState('');
+
+    // Debug logs to check component mounting
+    useEffect(() => {
+        console.log("CertificateApplication component mounted");
+    }, []);
 
     const certificateTypes = [
         'Non Creamy Layer Certificate',
@@ -60,21 +66,69 @@ const CertificateApplication = () => {
         onSubmit: async (values) => {
             setLoading(true);
             setError('');
+            console.log("Form submitted with values:", values);
 
             try {
-                // Submit using the CreateCertificateModel structure
-                const response = await CertificateService.createCertificate(values);
+                // Create a payload with all required fields and proper defaults for optional fields
+                const payload = {
+                    certificateType: values.certificateType,
+                    applicantName: values.applicantName,
+                    gender: values.gender,
+                    age: values.age || 0,               // Default for numbers
+                    address: values.address,
+                    fatherName: values.fatherName || '',
+                    religion: values.religion || '',
+                    caste: values.caste || '',
+                    postOffice: values.postOffice || '',
+                    pinCode: values.pinCode || '',
+                    state: values.state,
+                    district: values.district,
+                    village: values.village,
+                    taluk: values.taluk || '',
+                    location: values.location || '',
+                    // Handle certificate-specific fields with defaults
+                    familyMemberName: values.familyMemberName || '',
+                    relationship: values.relationship || '',
+                    annualIncome: values.annualIncome || '',
+                    companyName: values.companyName || '',
+                    companySector: values.companySector || '',
+                    identificationMark1: values.identificationMark1 || '',
+                    identificationMark2: values.identificationMark2 || '',
+                    identificationMark3: values.identificationMark3 || '',
+                };
+
+                // Log the payload for debugging
+                console.log("Sending certificate payload:", payload);
+
+                // Submit the certificate application
+                const response = await CertificateService.createCertificate(payload);
+                console.log("Certificate creation response:", response);
 
                 navigate('/certificates', {
                     state: {
-                        message: `Certificate application submitted successfully! Reference Number: ${response.data.referenceNumber}`
+                        message: `Certificate application submitted successfully! Reference Number: ${response.data?.referenceNumber || 'Generated'}`
                     }
                 });
             } catch (error) {
                 console.error('Certificate submission error:', error);
-                const resMessage = error.response?.data?.message ||
-                    'An error occurred. Please try again.';
-                setError(resMessage);
+
+                // Extract detailed error message
+                let errorMessage = 'An error occurred. Please try again.';
+
+                if (error.response) {
+                    if (error.response.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response.data?.errors) {
+                        // Handle validation errors array
+                        errorMessage = Array.isArray(error.response.data.errors)
+                            ? error.response.data.errors.join(', ')
+                            : Object.values(error.response.data.errors).flat().join(', ');
+                    } else if (typeof error.response.data === 'string') {
+                        errorMessage = error.response.data;
+                    }
+                }
+
+                setError(errorMessage);
                 setLoading(false);
             }
         }
@@ -82,14 +136,12 @@ const CertificateApplication = () => {
 
     const handleCertificateTypeChange = (e) => {
         const certificateType = e.target.value;
+        console.log("Certificate type selected:", certificateType);
         setSelectedCertificateType(certificateType);
         formik.setFieldValue('certificateType', certificateType);
     };
 
-    // The rest of the component remains the same
-    // ... (existing renderCertificateSpecificFields and render return)
-
-    // Existing code unchanged
+    // The rest of your renderCertificateSpecificFields function
     const renderCertificateSpecificFields = () => {
         switch (selectedCertificateType) {
             case 'Family Membership Certificate':
@@ -357,8 +409,69 @@ const CertificateApplication = () => {
                                             </div>
                                         </div>
 
-                                        {/* Remaining form fields remain the same */}
-                                        {/* ... */}
+                                        <div className="mb-3">
+                                            <label htmlFor="address" className="form-label">Address</label>
+                                            <textarea
+                                                id="address"
+                                                name="address"
+                                                className={`form-control ${formik.touched.address && formik.errors.address ? 'is-invalid' : ''}`}
+                                                rows="3"
+                                                onChange={formik.handleChange}
+                                                onBlur={formik.handleBlur}
+                                                value={formik.values.address}
+                                            ></textarea>
+                                            {formik.touched.address && formik.errors.address && (
+                                                <div className="invalid-feedback">{formik.errors.address}</div>
+                                            )}
+                                        </div>
+
+                                        <div className="row">
+                                            <div className="col-md-4 mb-3">
+                                                <label htmlFor="state" className="form-label">State</label>
+                                                <input
+                                                    id="state"
+                                                    name="state"
+                                                    type="text"
+                                                    className={`form-control ${formik.touched.state && formik.errors.state ? 'is-invalid' : ''}`}
+                                                    onChange={formik.handleChange}
+                                                    onBlur={formik.handleBlur}
+                                                    value={formik.values.state}
+                                                />
+                                                {formik.touched.state && formik.errors.state && (
+                                                    <div className="invalid-feedback">{formik.errors.state}</div>
+                                                )}
+                                            </div>
+                                            <div className="col-md-4 mb-3">
+                                                <label htmlFor="district" className="form-label">District</label>
+                                                <input
+                                                    id="district"
+                                                    name="district"
+                                                    type="text"
+                                                    className={`form-control ${formik.touched.district && formik.errors.district ? 'is-invalid' : ''}`}
+                                                    onChange={formik.handleChange}
+                                                    onBlur={formik.handleBlur}
+                                                    value={formik.values.district}
+                                                />
+                                                {formik.touched.district && formik.errors.district && (
+                                                    <div className="invalid-feedback">{formik.errors.district}</div>
+                                                )}
+                                            </div>
+                                            <div className="col-md-4 mb-3">
+                                                <label htmlFor="village" className="form-label">Village</label>
+                                                <input
+                                                    id="village"
+                                                    name="village"
+                                                    type="text"
+                                                    className={`form-control ${formik.touched.village && formik.errors.village ? 'is-invalid' : ''}`}
+                                                    onChange={formik.handleChange}
+                                                    onBlur={formik.handleBlur}
+                                                    value={formik.values.village}
+                                                />
+                                                {formik.touched.village && formik.errors.village && (
+                                                    <div className="invalid-feedback">{formik.errors.village}</div>
+                                                )}
+                                            </div>
+                                        </div>
 
                                         {/* Certificate specific fields */}
                                         {renderCertificateSpecificFields()}

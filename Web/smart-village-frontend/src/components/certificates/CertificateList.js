@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CertificateService from '../../services/certificate.service';
 import AuthService from '../../services/auth.service';
 
@@ -7,8 +7,23 @@ const CertificateList = ({ adminView = false }) => {
     const [certificates, setCertificates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [filter, setFilter] = useState('');
     const isAdmin = AuthService.isAdmin();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Add this useEffect for logging authentication status
+    useEffect(() => {
+        console.log("CertificateList component mounted");
+        console.log("Is authenticated:", AuthService.isTokenValid());
+        console.log("Is admin:", isAdmin);
+
+        // Check for success message from navigation
+        if (location.state?.message) {
+            setSuccess(location.state.message);
+        }
+    }, [isAdmin, location.state]);
 
     const fetchCertificates = useCallback(async () => {
         setLoading(true);
@@ -16,6 +31,8 @@ const CertificateList = ({ adminView = false }) => {
             const response = isAdmin
                 ? await CertificateService.getCertificates(filter)
                 : await CertificateService.getMyCertificates();
+
+            console.log("Certificates API response:", response);
 
             // Ensure we always have an array, even if the API response structure is unexpected
             const certificatesData = response.data || [];
@@ -50,16 +67,50 @@ const CertificateList = ({ adminView = false }) => {
         setFilter(e.target.value);
     };
 
+    // Function for programmatic navigation
+    const handleApplyClick = () => {
+        console.log("Apply button clicked");
+        navigate('/certificates/apply');
+    };
+
+    // Function to refresh data
+    const handleRefresh = () => {
+        fetchCertificates();
+    };
+
     return (
         <div className="container mt-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2>{isAdmin ? 'Manage Certificates' : 'My Certificates'}</h2>
-                {!isAdmin && (
-                    <Link to="/certificates/apply" className="btn btn-primary">
-                        <i className="fas fa-plus me-1"></i> Apply for Certificate
-                    </Link>
-                )}
+                <div>
+                    {!isAdmin && (
+                        <button
+                            onClick={handleApplyClick}
+                            className="btn btn-primary"
+                        >
+                            <i className="fas fa-plus me-1"></i> Apply for Certificate
+                        </button>
+                    )}
+                    <button
+                        onClick={handleRefresh}
+                        className="btn btn-outline-secondary ms-2"
+                    >
+                        <i className="fas fa-sync-alt me-1"></i> Refresh
+                    </button>
+                </div>
             </div>
+
+            {success && (
+                <div className="alert alert-success alert-dismissible fade show" role="alert">
+                    {success}
+                    <button
+                        type="button"
+                        className="btn-close"
+                        onClick={() => setSuccess('')}
+                        aria-label="Close"
+                    ></button>
+                </div>
+            )}
 
             {isAdmin && (
                 <div className="mb-4">

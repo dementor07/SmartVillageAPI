@@ -14,7 +14,28 @@ const getCertificateById = (id) => {
 };
 
 const createCertificate = (certificateData) => {
-    // Make sure we're using the correct data structure expected by the API
+    // Log the data being sent to help with debugging
+    console.log("Certificate service sending data:", certificateData);
+
+    // Make sure all required fields are present
+    const requiredFields = [
+        'certificateType',
+        'applicantName',
+        'gender',
+        'address',
+        'state',
+        'district',
+        'village'
+    ];
+
+    const missingFields = requiredFields.filter(field =>
+        !certificateData[field] || certificateData[field].trim() === ''
+    );
+
+    if (missingFields.length > 0) {
+        console.error("Missing required fields:", missingFields);
+    }
+
     return api.post('/Certificate', certificateData);
 };
 
