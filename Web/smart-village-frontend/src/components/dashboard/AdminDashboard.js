@@ -44,28 +44,56 @@ const AdminDashboard = () => {
             try {
                 setLoading(true);
 
-                // Fetch all admin data in parallel
-                const [
-                    requestsResponse,
-                    certificatesResponse,
-                    announcementsResponse,
-                    schemesResponse,
-                    schemeApplicationsResponse
-                ] = await Promise.all([
-                    RequestService.getAllRequests(),
-                    CertificateService.getCertificates(),
-                    AnnouncementService.getAnnouncements(),
-                    SchemeService.getSchemes(),
-                    SchemeService.getAllApplications()
-                ]);
+                // Fetch each data type individually with defensive coding
+                let allRequests = [], allCertificates = [], allAnnouncements = [],
+                    allSchemes = [], allSchemeApplications = [];
 
-                // Calculate and set dashboard data
-                const allRequests = requestsResponse.data || [];
-                const allCertificates = certificatesResponse.data || [];
-                const allAnnouncements = announcementsResponse.data || [];
-                const allSchemes = schemesResponse.data || [];
-                const allSchemeApplications = schemeApplicationsResponse.data || [];
+                try {
+                    const requestsResponse = await RequestService.getAllRequests();
+                    // Ensure we have an array
+                    allRequests = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
+                    console.log("Requests loaded:", allRequests.length);
+                } catch (err) {
+                    console.error("Error loading requests:", err);
+                }
 
+                try {
+                    const certificatesResponse = await CertificateService.getCertificates();
+                    // Ensure we have an array
+                    allCertificates = Array.isArray(certificatesResponse.data) ? certificatesResponse.data : [];
+                    console.log("Certificates loaded:", allCertificates.length);
+                } catch (err) {
+                    console.error("Error loading certificates:", err);
+                }
+
+                try {
+                    const announcementsResponse = await AnnouncementService.getAnnouncements();
+                    // Ensure we have an array
+                    allAnnouncements = Array.isArray(announcementsResponse.data) ? announcementsResponse.data : [];
+                    console.log("Announcements loaded:", allAnnouncements.length);
+                } catch (err) {
+                    console.error("Error loading announcements:", err);
+                }
+
+                try {
+                    const schemesResponse = await SchemeService.getSchemes();
+                    // Ensure we have an array
+                    allSchemes = Array.isArray(schemesResponse.data) ? schemesResponse.data : [];
+                    console.log("Schemes loaded:", allSchemes.length);
+                } catch (err) {
+                    console.error("Error loading schemes:", err);
+                }
+
+                try {
+                    const schemeApplicationsResponse = await SchemeService.getAllApplications();
+                    // Ensure we have an array
+                    allSchemeApplications = Array.isArray(schemeApplicationsResponse.data) ? schemeApplicationsResponse.data : [];
+                    console.log("Scheme applications loaded:", allSchemeApplications.length);
+                } catch (err) {
+                    console.error("Error loading scheme applications:", err);
+                }
+
+                // Now set dashboard data with guaranteed arrays
                 setDashboardData({
                     stats: {
                         pendingRequests: allRequests.filter(r => r.status === 'Pending').length,
