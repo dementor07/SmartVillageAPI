@@ -1,10 +1,9 @@
-// Web/smart-village-frontend/src/components/certificates/CertificateList.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import CertificateService from '../../services/certificate.service';
 import AuthService from '../../services/auth.service';
 
-const CertificateList = () => {
+const CertificateList = ({ adminView = false }) => {
     const [certificates, setCertificates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -18,10 +17,14 @@ const CertificateList = () => {
                 ? await CertificateService.getCertificates(filter)
                 : await CertificateService.getMyCertificates();
 
-            setCertificates(response.data);
+            // Ensure we always have an array, even if the API response structure is unexpected
+            const certificatesData = response.data || [];
+            setCertificates(Array.isArray(certificatesData) ? certificatesData : []);
             setLoading(false);
         } catch (error) {
+            console.error('Error fetching certificates:', error);
             setError('Failed to load certificates');
+            setCertificates([]); // Set to empty array on error
             setLoading(false);
         }
     }, [filter, isAdmin]);
